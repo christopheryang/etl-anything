@@ -1,0 +1,195 @@
+Product Planning Call Transcript
+Date: October 14, 2025 Attendees: Bao Dinh (Product Manager), Rick Chakra (Senior Engineer) Duration: 32 minutes
+ 
+Bao: Hey Rick, thanks for jumping on this call. I know you're swamped with the current sprint, but I wanted to go over some priorities for the next quarter. Got your coffee?
+Rick: Yeah, yeah, I'm good. Just finished standup. So what's on your mind? I saw your Slack message about "urgent feature discussions" - that's never a good sign on a Friday. laughs
+Bao: laughs I know, I know. But hear me out. So I've been getting a lot of feedback from our pilot customers, and there's one thing that keeps coming up over and over again. Like, literally every demo, every feedback session.
+Rick: Okay, I'm listening. What is it?
+Bao: So you know how we're currently using Claude Haiku 4-5 for all our AI processing, right?
+Rick: Yeah, of course. We made that decision like two months ago. It's been working great - super fast, cost-effective. What's the issue?
+Bao: Right, right. And I was totally on board with that decision at the time. But here's the thing - customers keep telling us that the responses lack... I don't know how to put this... sophistication? Intelligence? Like, they're getting answers, but they want deeper analysis.
+Rick: Hmm. Can you give me a specific example?
+Bao: Sure. So last Tuesday, I was demoing to the folks at TechCorp - you know, that financial services company. They were running some complex financial documents through our system, trying to extract insights. And the Haiku responses were accurate, don't get me wrong, but they were kind of... surface level? The CTO actually said to me, "This is good, but we need something with more horsepower under the hood."
+Rick: Okay, interesting. What did they expect to see?
+Bao: They wanted deeper reasoning, more nuanced understanding of the documents, better connecting of information across multiple sources. Like, Haiku was giving them the facts, but Sonnet would give them the insights. You know what I mean?
+Rick: Yeah, I think so. So you're thinking we need to add support for Claude Sonnet 4-5?
+Bao: Exactly! Yes. That's exactly what I'm thinking. And honestly, Rick, I think this needs to be our top priority. Like, number one on the list.
+Rick: pause Okay, let me think about this. Adding Sonnet support isn't trivial, but it's not impossible either. We'd basically need to add a model selection option in the UI, update our API calls to handle different models, and probably add some configuration for different token limits and pricing.
+Bao: Right, right. How long are we talking?
+Rick: If we really focus on it? Probably a week, maybe two weeks max. But Bao, you know Sonnet is significantly more expensive than Haiku, right? Like, we're talking maybe 10x the cost per token.
+Bao: I know, I know. That's been bothering me too. But here's my thinking - we could make it an option. Users who need the extra intelligence can opt into Sonnet, and users who are okay with faster, cheaper responses stick with Haiku.
+Rick: That's actually a pretty good idea. So like a toggle or dropdown?
+Bao: Yeah, exactly. Maybe in the settings panel? Or even per-request? Like, for this particular document analysis, I want to use Sonnet, but for quick summaries, Haiku is fine.
+Rick: Per-request would be more flexible but also more complex from a UX perspective. We'd need to think about where that control lives.
+Bao: True, true. What if we did both? A default setting in the user profile, but then an override option when you're actually making a request?
+Rick: That could work. Let me think about the architecture... pause Yeah, we'd need to update our request payload schema, add validation, update the frontend components...
+Bao: But it's doable?
+Rick: It's doable. I'm just thinking through the implications. What about rate limiting? Sonnet requests are going to be slower too, right?
+Bao: Yeah, that's the other thing. I keep going back and forth on this. Speed versus intelligence. Some customers really care about speed - like, they want answers in 2 seconds, not 10 seconds.
+Rick: Right. Sonnet is definitely slower. Probably 3-5x slower than Haiku for the same request.
+Bao: Ugh, see, that's what worries me. But then I think about that TechCorp demo, and they didn't care about speed. They cared about getting the right insights. They literally said "We'd rather wait 10 seconds for a smart answer than get a dumb answer in 2 seconds."
+Rick: laughs That's a great quote. Different users, different priorities.
+Bao: Exactly! Which is why I think giving them the choice is the right move. And Rick, I really want to prioritize this. Like, I want this in the next sprint if possible.
+Rick: Next sprint? That's aggressive. We've already got the payment integration and the bulk upload feature scheduled.
+Bao: I know, I know. But hear me out. The payment integration is important, but it's not blocking any deals. The bulk upload is nice-to-have. But this Sonnet support? I've got three customers - three paying customers - who are waiting for this before they expand their usage.
+Rick: Oh, that changes things. Real revenue impact?
+Bao: Real revenue impact. TechCorp said they'd 10x their usage if we had Sonnet. They're currently just testing with us, but they want to roll it out to their entire analyst team.
+Rick: Okay, that's compelling. What's the dollar amount we're talking about?
+Bao: Conservatively? Probably an extra $15K per month just from TechCorp. And that's just one customer.
+Rick: whistles Okay, yeah, that's significant. Alright, so if we prioritize this, what gets pushed?
+Bao: Could we push the bulk upload feature to the following sprint? It's important but not urgent.
+Rick: Yeah, I think so. Let me talk to Sarah about it - she's been working on that. But if we're bringing in an extra $15K per month, I think she'll understand.
+Bao: Perfect. So we're aligned on Sonnet being the top priority?
+Rick: Yeah, I think so. Let me just make sure I understand the scope. We need to:
+1.	Add a model selection mechanism - both default and per-request
+2.	Update the API integration to support both Haiku and Sonnet
+3.	Handle different pricing and rate limits
+4.	Update the UI to show which model is being used
+5.	Maybe add some guidance about when to use which model?
+Bao: Yes! All of that. The guidance piece is interesting - like, maybe a tooltip that says "Use Sonnet for complex analysis, Haiku for quick summaries"?
+Rick: Yeah, something like that. We don't want users to just always pick Sonnet because it sounds better, and then complain about costs.
+Bao: Good point. Maybe we even show estimated costs before they submit?
+Rick: Ooh, that's a good idea. Like "This request will cost approximately $0.05 with Sonnet or $0.005 with Haiku"?
+Bao: Exactly! That way they can make an informed choice.
+Rick: I like it. Okay, so this is definitely doable. Two weeks should be enough if we really focus. Maybe we can even get it done in a week if everything goes smoothly.
+Bao: Music to my ears. Okay, so that's number one. There are a few other things I wanted to discuss too, but they're lower priority.
+Rick: Sure, what else you got?
+Bao: So, second thing. We've been getting requests for better PDF processing. Right now we just extract text from PDFs, which works fine for simple documents, but customers are uploading complex PDFs with tables, charts, images...
+Rick: And they want us to handle all of that intelligently?
+Bao: Exactly. I'm thinking we need some kind of... I don't know, "Intelligent PDF Processor" node or feature? Something that doesn't just extract text, but actually understands the structure of the document.
+Rick: Hmm, that's actually pretty complex. PDFs can have all sorts of weird formatting. What exactly are customers expecting?
+Bao: So in the last user interview I did - this was with HealthData Systems - they were uploading medical research papers. These papers have tables of data, charts, footnotes, multiple columns... and they want our system to understand that a table on page 3 is related to the discussion on page 5.
+Rick: Okay, that's definitely non-trivial. We'd need to do proper document parsing, maybe even OCR for images, layout analysis...
+Bao: Right. I was thinking we could use one of those document processing libraries? I know there are a few out there.
+Rick: Yeah, there are. PyMuPDF is pretty good, or we could use something like Unstructured. They specialize in this kind of thing.
+Bao: Unstructured? I haven't heard of that one.
+Rick: Yeah, it's a library specifically designed for parsing complex documents. It can handle PDFs, Word docs, images, even PowerPoints. It does layout detection, table extraction, all that stuff.
+Bao: That sounds perfect! Could we integrate that?
+Rick: We could. It'd be a decent chunk of work though. We'd need to set up the parsing pipeline, figure out how to represent the structured data, update our UI to display it properly...
+Bao: Timeline?
+Rick: If we're doing it right? Probably three to four weeks. It's not just the parsing - we need to think about how we present this structured information to the user. Like, do we show them a visual representation of the document structure? Do we just enhance the text output?
+Bao: Good question. What do you think makes more sense?
+Rick: Honestly? Both, probably. Show them a structured view where they can see "Here's the table from page 3" as an actual table, not just text. But also make that data available to the AI for analysis.
+Bao: I love that. But that sounds like it could take a while.
+Rick: Yeah, it's not a quick win. That's probably a month-long project if we want to do it properly.
+Bao: Okay, so definitely lower priority than Sonnet. But let's keep it on the roadmap. Maybe Q1 next year?
+Rick: Q1 sounds reasonable. I'll add it to the backlog with a rough estimate.
+Bao: Perfect. Okay, third thing - and this is kind of embarrassing - we still don't have dark mode.
+Rick: laughs Oh man, yeah. We've been saying we'll add that for like six months.
+Bao: I know! And I keep getting requests for it. Like, it's not critical, but it comes up in almost every user feedback session. People work late, they're staring at bright white screens, their eyes hurt...
+Rick: Yeah, I get it. Dark mode is one of those things that seems simple but can be surprisingly fiddly to implement well.
+Bao: Really? I thought it was just changing some CSS colors?
+Rick: If we wanted to do a half-assed dark mode, sure. But to do it right, we need to think about:
+•	Color contrast and accessibility
+•	Making sure all our components look good in dark mode
+•	Handling images and charts that might not look good on dark backgrounds
+•	User preference persistence
+•	System preference detection - like, if their OS is in dark mode, should we auto-switch?
+Bao: Oh wow, okay, so it's more involved than I thought.
+Rick: It's not terrible, but it's one of those things where the devil is in the details. I'd estimate maybe a week to do it properly?
+Bao: A week? That seems doable.
+Rick: Yeah, it's very doable. The question is priority. It's a nice-to-have, but it doesn't directly impact functionality or revenue.
+Bao: True, true. So maybe we tackle that after Sonnet? Or even after the PDF processor?
+Rick: I'd say after Sonnet for sure. PDF processor versus dark mode... honestly, I'd probably do dark mode first because it's quicker and customers keep asking for it.
+Bao: That makes sense. So the order would be: Sonnet, then dark mode, then PDF processor?
+Rick: Yeah, I think that's a good prioritization. Sonnet is the big revenue driver, dark mode is a quick quality-of-life improvement, and PDF processor is the longer-term sophisticated feature.
+Bao: I like that thinking. Okay, so let's say... Sonnet in the next sprint, that's late November. Dark mode in early December. PDF processor kicks off after the holidays, targets for end of January?
+Rick: That timeline feels about right. We might slip a bit around the holidays, but that's a reasonable roadmap.
+Bao: Awesome. Okay, last thing, and this one is actually pretty important for demos.
+Rick: What's that?
+Bao: We need authentication. Like, proper user authentication.
+Rick: laughs Oh man, are we still running without auth?
+Bao: I know, I know! It was fine when it was just internal testing, but now we're doing customer demos and it's... it's embarrassing, Rick. I'm literally sending people a raw URL and being like "Don't share this with anyone."
+Rick: Yeah, that's not great. What kind of auth are you thinking? Simple username/password? OAuth? SSO?
+Bao: I'm not sure. What's easiest to implement but still professional?
+Rick: Well, username/password with JWT tokens is pretty standard and not too hard to implement. We could have that up and running in maybe a week.
+Bao: A week? That doesn't sound too bad.
+Rick: If we want to get fancier - like, OAuth with Google or GitHub login, or SSO for enterprise customers - that's more involved. Probably two to three weeks.
+Bao: Hmm. What do you think customers would expect?
+Rick: For the customers we're targeting? Probably at least OAuth with Google. Enterprise customers will eventually want SSO with their corporate identity provider, but that can come later.
+Bao: Okay, so maybe we do OAuth with Google as the first pass, and then add SSO later when we have enterprise customers who really need it?
+Rick: That's a good approach. OAuth with Google is a happy medium - it's more professional than basic username/password, but not as complex as full SSO.
+Bao: Alright, so two to three weeks for OAuth with Google?
+Rick: Yeah, that's about right. We'd need to:
+•	Set up the OAuth flow with Google
+•	Add user session management
+•	Create a proper user database
+•	Add authentication checks to all our API endpoints
+•	Build login/logout UI
+•	Handle edge cases like session expiration, password resets if we have email/password as a backup...
+Bao: Oof, okay, that is a lot.
+Rick: Auth is one of those things that seems simple but has a lot of edge cases. And we need to get it right because it's security-critical.
+Bao: Totally understand. So where does this fit in the priority list?
+Rick: Good question. How bad is the demo situation right now?
+Bao: It's not blocking deals, but it's definitely unprofessional. I've had a couple customers raise eyebrows when I tell them there's no login.
+Rick: But like, no one's refusing to sign up because of it?
+Bao: Not yet. But I think we're getting lucky. If we were demoing to more security-conscious companies, it could be a problem.
+Rick: Okay, so it's important but not the most urgent thing.
+Bao: Right. I'm thinking we should get it in before we really start scaling up our marketing and sales efforts. We're planning a big push in January, so we'd need auth by then.
+Rick: That gives us some breathing room. So maybe we tackle this after dark mode but before or alongside the PDF processor?
+Bao: Yeah, that feels right. So revised timeline: Sonnet in November, dark mode in early December, authentication in mid-December, PDF processor in January?
+Rick: That's a solid roadmap. The only wildcard is the holidays - we'll probably have reduced capacity in late December.
+Bao: True. Maybe we push authentication to early January then? Right after New Year's?
+Rick: That might be smarter. We don't want to deploy a major security feature right before everyone goes on vacation.
+Bao: Good point. Okay, so authentication in early January, and then PDF processor can start mid-January, finish by end of January or early February.
+Rick: Yep, that works.
+Bao: Awesome. So just to recap, because I want to make sure I have this right:
+Rick: Go for it.
+Bao: Priority 1 is Claude Sonnet 4-5 support. That's next sprint, late November. This includes the model selection UI, API integration, cost estimation, all that good stuff.
+Rick: Yep, that's the big one.
+Bao: Priority 2 is dark mode. We're targeting early December, should take about a week.
+Rick: Correct.
+Bao: Priority 3 is authentication. We'll do OAuth with Google, target early January after the holidays, about two to three weeks of work.
+Rick: Right.
+Bao: And then Priority 4 is the intelligent PDF processor. That starts mid-January, probably wraps up by end of January or early February, about a month of work.
+Rick: You got it. That's the plan.
+Bao: Perfect. And just to be absolutely clear, because I know I'll get asked about this - the Sonnet support is definitely the most critical, right? Like, if I had to pick one thing to get done in the next month, that's it?
+Rick: Based on what you told me about the revenue impact? Yeah, absolutely. Three customers waiting for it, potential for $15K+ in additional monthly revenue just from one of them? That's a no-brainer.
+Bao: Okay good, I'm glad we're aligned. Because I really do think this is going to be a game-changer for us. The system needs more intelligence, and Sonnet gives us that.
+Rick: I agree. And honestly, having both Haiku and Sonnet as options is a strong selling point. We can tell customers "We've got the fast, economical option AND the powerful, sophisticated option - you choose based on your needs."
+Bao: Exactly! That's a great way to position it. I'm definitely going to use that in the next demo.
+Rick: laughs Go for it. Just make sure we actually have it built first.
+Bao: Well yeah, obviously. laughs That's why we're doing it next sprint!
+Rick: Fair enough. Okay, so anything else? Any other features lurking in your backlog that I should know about?
+Bao: thinking Not for the immediate term. I mean, there's always stuff on the wishlist - customers have mentioned things like API access, webhook integrations, better analytics dashboards...
+Rick: Oh boy, the never-ending feature list.
+Bao: Right? But none of that is urgent. I think if we can nail these four things - Sonnet, dark mode, auth, and PDF processing - we'll be in a really strong position for Q1.
+Rick: Agreed. And honestly, just getting Sonnet in next sprint is going to make a big difference.
+Bao: I'm excited about it. I keep thinking about that TechCorp demo and how much better it would have been with Sonnet. Like, night and day difference.
+Rick: What specifically do you think would have been better?
+Bao: So they were analyzing a 50-page financial report, right? And Haiku gave them a decent summary, but it was pretty basic. "Revenue was X, expenses were Y, profit was Z." But what they really wanted was deeper analysis - like, what trends are emerging, how does this compare to industry benchmarks, what risks should we be aware of?
+Rick: And you think Sonnet would have caught that?
+Bao: I mean, I've tested Sonnet in other contexts, and the reasoning is just on another level. It makes connections that Haiku misses. It's like... Haiku is really good at following instructions and giving you facts, but Sonnet actually thinks about the problem.
+Rick: That's a good way to put it. I've noticed the same thing when I've played with different models.
+Bao: Right? So yeah, I think with Sonnet, we could have shown them that deeper analysis, and they would have been like "Sold! Where do we sign?"
+Rick: Instead of "This is interesting, let us think about it"?
+Bao: Exactly. laughs I mean, they're still interested, don't get me wrong. But I could tell they were on the fence.
+Rick: Well, hopefully once we have Sonnet support, we can get them off the fence.
+Bao: That's the plan. I'm actually going to reach back out to them once we have it deployed and offer to do another demo.
+Rick: Smart. Strike while the iron is hot.
+Bao: Yep. Okay, so I think that covers everything. You feel good about the plan?
+Rick: Yeah, I feel good. Let me just make sure I can actually deliver on the Sonnet timeline. I'm going to need to loop in Maya because she's been doing a lot of the AI integration work.
+Bao: Oh yeah, definitely talk to Maya. Do you think she'll have capacity?
+Rick: I think so. She just wrapped up the streaming response feature, so her plate should be relatively clear.
+Bao: Perfect. And if there are any blockers or if the timeline needs to shift, just let me know ASAP, okay?
+Rick: Will do. I'll send you and the team an updated roadmap by end of day.
+Bao: Awesome. Thanks Rick, I really appreciate you being flexible on this.
+Rick: No problem. I mean, if we're talking about real revenue impact, it makes sense to prioritize it.
+Bao: Definitely. And I know I said this already, but I really do think the intelligence factor is huge. Customers aren't just looking for a tool that works - they want a tool that's smart. That understands their documents, that can give them insights they might have missed.
+Rick: Yeah, I get it. And Sonnet gives us that edge.
+Bao: Exactly. It's the difference between a commodity product and something that actually provides real value.
+Rick: Well said. Okay, I should probably get back to work if I'm going to make this timeline happen. laughs
+Bao: laughs Yeah, yeah, go do your magic. I'll let you go.
+Rick: Sounds good. Talk soon!
+Bao: Oh wait, one more quick thing!
+Rick: Sure, what's up?
+Bao: When we implement the Sonnet support, can we also make sure we log which model was used for each request? I think that'll be useful for analytics later - like, seeing which customers are using Sonnet versus Haiku, understanding the cost breakdown...
+Rick: Oh, good call. Yeah, we should definitely log that. We can add it to our existing request logging system.
+Bao: Perfect. And maybe even surface it in the UI? Like, a little indicator that says "This response was generated using Claude Sonnet 4-5"?
+Rick: Hmm, that could be useful for transparency. Like, users can see exactly what they're getting.
+Bao: Right. And if they're wondering why their costs are higher, they can see "Oh, I've been using Sonnet for everything, that's why."
+Rick: Makes sense. I'll add that to the spec. It should be pretty straightforward - just a small badge or tag next to the response.
+Bao: Awesome. Okay, NOW I'll let you go. laughs
+Rick: laughs Alright, talk to you later Bao.
+Bao: Bye!
+

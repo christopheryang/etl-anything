@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+PyMuPDF
+anthropic
+python-dotenv
+python-multipart
+pytest
+pytest-cov
+pytest-asyncio
+httpx
