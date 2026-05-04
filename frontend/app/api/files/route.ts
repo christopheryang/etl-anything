@@ -3,9 +3,11 @@ import { readdir, mkdir, writeFile, stat } from "fs/promises";
 import { join, resolve } from "path";
 import { randomUUID } from "crypto";
 
-// Get uploads directory from environment variable or use default
+// Get uploads directory from environment variable or use default.
+// Default points to ../backend/uploads to match the backend's UPLOADS_DIR
+// when frontend/ and backend/ are siblings (the standard repo layout).
 const getUploadsDir = () => {
-  return process.env.UPLOADS_DIR || resolve(process.cwd(), "..", "uploads");
+  return process.env.UPLOADS_DIR || resolve(process.cwd(), "..", "backend", "uploads");
 };
 
 export async function GET() {

@@ -58,11 +58,12 @@ python scripts/test_litellm.py
 ```bash
 cd frontend
 npm install
-cp .env.local.example .env.local
 npm run dev
 ```
 
 Open http://localhost:3000.
+
+The frontend uses sensible defaults (`http://localhost:8000` for the backend, `../backend/uploads` for the uploads directory). Copy `.env.local.example` to `.env.local` only if you need to override them.
 
 ### End-to-end check
 
