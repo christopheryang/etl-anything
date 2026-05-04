@@ -1,7 +1,7 @@
 """
 Quick sanity check that the Anthropic SDK can talk to the LiteLLM proxy.
 
-Reads ANTHROPIC_BASE_URL and ANTHROPIC_AUTH_TOKEN from the backend's .env
+Reads OCTANE_LITELLM and OCTANE_API_KEY from the backend's .env
 (or the shell environment). Run from the backend/ directory:
 
     python scripts/test_litellm.py [model-name]
@@ -20,11 +20,11 @@ os.environ.pop("ANTHROPIC_API_KEY", None)
 
 
 def main() -> int:
-    base_url = os.environ.get("ANTHROPIC_BASE_URL")
-    auth_token = os.environ.get("ANTHROPIC_AUTH_TOKEN")
+    base_url = os.environ.get("OCTANE_LITELLM")
+    auth_token = os.environ.get("OCTANE_API_KEY")
 
     if not base_url or not auth_token:
-        print("ERROR: set ANTHROPIC_BASE_URL and ANTHROPIC_AUTH_TOKEN", file=sys.stderr)
+        print("ERROR: set OCTANE_LITELLM and OCTANE_API_KEY", file=sys.stderr)
         return 1
 
     model = sys.argv[1] if len(sys.argv) > 1 else "claude-haiku-4-5"
