@@ -48,8 +48,8 @@ app.add_middleware(
 # bearer token — LiteLLM expects Authorization: Bearer only.
 os.environ.pop("ANTHROPIC_API_KEY", None)
 anthropic_client = Anthropic(
-    base_url=os.getenv("ANTHROPIC_BASE_URL"),
-    auth_token=os.getenv("ANTHROPIC_AUTH_TOKEN"),
+    base_url=os.getenv("OCTANE_LITELLM"),
+    auth_token=os.getenv("OCTANE_API_KEY"),
 )
 
 # In-memory execution store
@@ -451,11 +451,11 @@ async def execute_workflow(
     logger.info(f"Workflow: {len(request.workflow.nodes)} nodes, {len(request.workflow.edges)} edges")
     
     # Validate API key
-    if not os.getenv("ANTHROPIC_AUTH_TOKEN"):
-        logger.error("ANTHROPIC_AUTH_TOKEN not configured")
+    if not os.getenv("OCTANE_API_KEY"):
+        logger.error("OCTANE_API_KEY not configured")
         raise HTTPException(
             status_code=500,
-            detail="ANTHROPIC_AUTH_TOKEN not configured in environment"
+            detail="OCTANE_API_KEY not configured in environment"
         )
     
     # Validate workflow

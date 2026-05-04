@@ -33,9 +33,11 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-# edit .env and set ANTHROPIC_AUTH_TOKEN to your Octane key
+# edit .env and set OCTANE_API_KEY to your Octane key
 uvicorn main:app --reload --port 8000
 ```
+
+> **Note:** `.env` overrides your shell exports. If you copy the example, fill in `OCTANE_API_KEY` — an empty value will mask your shell value. To rely on shell exports alone, skip the `cp` step.
 
 Verify the server is up:
 
