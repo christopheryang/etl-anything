@@ -1,9 +1,3 @@
-"use client";
-import dynamic from "next/dynamic";
-
-const WorkflowCanvas = dynamic(
-  () => import("./components/workflow/WorkflowCanvas"),
-  { ssr: false }
-);
+import WorkflowCanvas from "./components/workflow/WorkflowCanvas";
 
 export default WorkflowCanvas;
