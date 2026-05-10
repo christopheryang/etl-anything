@@ -1,0 +1,93 @@
+{
+  "id": "data-validator",
+  "name": "Data Validation Pipeline",
+  "description": "Validate data quality and flag issues for review. Uses AI to detect problems and rules to route clean vs. dirty data.",
+  "category": "Validation",
+  "tags": ["validation", "quality", "data", "branching"],
+  "workflow": {
+    "nodes": [
+      {
+        "id": "input-1",
+        "type": "input",
+        "position": { "x": 100, "y": 200 },
+        "data": {
+          "label": "Input Data",
+          "fileName": "",
+          "fileId": ""
+        }
+      },
+      {
+        "id": "llm-1",
+        "type": "reasoning",
+        "position": { "x": 400, "y": 200 },
+        "data": {
+          "label": "Validate",
+          "prompt": "Review this data for quality issues including: missing values, inconsistent formatting, outliers, and duplicates. If no issues are found, respond with 'no issues found'. Otherwise list all issues found.",
+          "model": "qwen/qwen3.5-397b-a17b",
+          "temperature": 0.5,
+          "systemPrompt": "You are a data quality expert. Be thorough but concise."
+        }
+      },
+      {
+        "id": "rule-1",
+        "type": "rule",
+        "position": { "x": 700, "y": 200 },
+        "data": {
+          "label": "Has Issues?",
+          "conditions": [
+            {
+              "variable": "output",
+              "operator": "contains",
+              "value": "no issues"
+            }
+          ],
+          "logic": "OR"
+        }
+      },
+      {
+        "id": "output-clean",
+        "type": "output",
+        "position": { "x": 1000, "y": 100 },
+        "data": {
+          "label": "Clean Data",
+          "fileName": "validated-clean",
+          "format": "json"
+        }
+      },
+      {
+        "id": "output-issues",
+        "type": "output",
+        "position": { "x": 1000, "y": 300 },
+        "data": {
+          "label": "Issues Found",
+          "fileName": "validation-issues",
+          "format": "txt"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge-1",
+        "source": "input-1",
+        "target": "llm-1"
+      },
+      {
+        "id": "edge-2",
+        "source": "llm-1",
+        "target": "rule-1"
+      },
+      {
+        "id": "edge-true",
+        "source": "rule-1",
+        "target": "output-clean",
+        "sourceHandle": "true"
+      },
+      {
+        "id": "edge-false",
+        "source": "rule-1",
+        "target": "output-issues",
+        "sourceHandle": "false"
+      }
+    ]
+  }
+}

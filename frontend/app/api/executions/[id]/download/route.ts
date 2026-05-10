@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 // FastAPI backend URL
-const FASTAPI_URL = process.env.FASTAPI_URL || "http://localhost:8000";
+const FASTAPI_URL = process.env.FASTAPI_URL || "http://localhost:8001";
 
 /**
  * GET /api/executions/[id]/download

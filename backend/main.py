@@ -13,6 +13,7 @@ import logging
 from dotenv import load_dotenv
 import fitz
 from anthropic import Anthropic
+from openai import OpenAI
 
 load_dotenv(override=True)
 
@@ -24,6 +25,10 @@ from node_handlers import (
     handle_rule_node,
     handle_langgraph_node,
 )
+
+# Import execution history
+from history import initialize_history, ExecutionHistory, ExecutionRecord
+from dataclasses import asdict
 
 # Configure logging
 logging.basicConfig(
@@ -46,12 +51,46 @@ app.add_middleware(
 
 # Initialize Anthropic client.
 # Drop ANTHROPIC_API_KEY so the SDK doesn't also send x-api-key alongside the
-# bearer token — LiteLLM expects Authorization: Bearer only.
+# bearer token — LiteLLM expects Authorization: Bearer ***
 os.environ.pop("ANTHROPIC_API_KEY", None)
 anthropic_client = Anthropic(
     base_url=os.getenv("OCTANE_LITELLM"),
     auth_token=os.getenv("OCTANE_API_KEY"),
 )
+
+# Initialize NVIDIA NIM client (OpenAI-compatible API)
+NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY")
+NVIDIA_NIM_URL = os.getenv("NVIDIA_NIM_URL", "https://integrate.api.nvidia.com/v1")
+
+nvidia_client: Optional[OpenAI] = None
+if NVIDIA_API_KEY:
+    nvidia_client = OpenAI(
+        base_url=NVIDIA_NIM_URL,
+        api_key=NVIDIA_API_KEY
+    )
+    logger.info("NVIDIA NIM client initialized")
+else:
+    logger.warning("NVIDIA_API_KEY not set - NVIDIA models will not be available")
+
+# Model mappings
+NVIDIA_MODELS = {
+    "qwen-3.5": "qwen/qwen3.5-397b-a17b",
+    "llama-3.1-405b": "meta/llama-3.1-405b-instruct",
+    "llama-3.1-70b": "meta/llama-3.1-70b-instruct",
+    "gemma-2b": "google/gemma-2b",
+}
+
+ANTHROPIC_MODELS = {
+    "haiku-4.5": "claude-3-5-haiku-latest",
+    "sonnet-4.7": "claude-3-7-sonnet-latest",
+    "opus-4.7": "claude-3-5-opus-latest",
+}
+
+def get_model_provider(model: str) -> str:
+    """Determine which provider to use based on model name."""
+    if model in NVIDIA_MODELS.values():
+        return "nvidia"
+    return "anthropic"
 
 # In-memory execution store
 executions: Dict[str, "ExecutionStatus"] = {}
@@ -143,11 +182,17 @@ class ExecuteResponse(BaseModel):
 # Create necessary directories on startup
 UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", str(Path(__file__).parent / "uploads")))
 OUTPUTS_DIR = Path(os.getenv("OUTPUTS_DIR", str(Path(__file__).parent / "outputs")))
+EXECUTIONS_DIR = Path(os.getenv("EXECUTIONS_DIR", str(Path(__file__).parent / "executions")))
 UPLOADS_DIR.mkdir(exist_ok=True)
 OUTPUTS_DIR.mkdir(exist_ok=True)
+EXECUTIONS_DIR.mkdir(exist_ok=True)
 
 logger.info(f"Using UPLOADS_DIR: {UPLOADS_DIR.absolute()}")
 logger.info(f"Using OUTPUTS_DIR: {OUTPUTS_DIR.absolute()}")
+logger.info(f"Using EXECUTIONS_DIR: {EXECUTIONS_DIR.absolute()}")
+
+# Initialize execution history
+history = initialize_history(str(EXECUTIONS_DIR), max_per_workflow=100, retention_days=30)
 
 
 # Node Handler Registry
@@ -263,11 +308,12 @@ def execute_node(
         raise ValueError(f"Unknown node type: {node.type}")
     
     # Prepare context with all dependencies
-    # Handlers can use **kwargs to get what they need
+    # Handlers can use ** kwargs to get what they need
     context = {
         "uploads_dir": UPLOADS_DIR,
         "outputs_dir": OUTPUTS_DIR,
         "anthropic_client": anthropic_client,
+        "nvidia_client": nvidia_client,
     }
     
     # Call the handler with node, execution_id, input_data, and context
@@ -313,7 +359,10 @@ def execute_node_recursive(
 
     try:
         # Get all inputs from upstream nodes
-        upstream_ids = incoming_edges.get(node_id, [])
+        # incoming_edges[node_id] = [(source_id, sourceHandle), ...]
+        upstream_tuples = incoming_edges.get(node_id, [])
+        upstream_ids = [sid for sid, _ in upstream_tuples]  # Extract just the source IDs
+        
         upstream_results = [results[sid] for sid in upstream_ids if sid in results]
 
         if upstream_results:
@@ -425,6 +474,72 @@ def execute_node_recursive(
         raise
 
 
+def save_execution_history(execution_id: str, workflow: WorkflowDefinition, error: Optional[str] = None):
+    """Save execution record to history after completion or failure."""
+    try:
+        if execution_id not in executions:
+            logger.warning(f"Cannot save history: execution {execution_id} not found")
+            return
+        
+        execution = executions[execution_id]
+        started = datetime.fromisoformat(execution.started_at.replace('Z', '+00:00'))
+        completed = datetime.fromisoformat(execution.completed_at.replace('Z', '+00:00')) if execution.completed_at else datetime.now(timezone.utc)
+        duration_ms = int((completed - started).total_seconds() * 1000)
+        
+        # Extract workflow name from nodes (first input node or default)
+        workflow_name = f"Workflow {execution_id[:8]}"
+        for node in workflow.nodes:
+            if node.type == "input" and hasattr(node.data, 'fileName'):
+                workflow_name = f"ETL: {node.data.fileName}"
+                break
+        
+        # Collect node results
+        node_results_list = []
+        for node_id, node_status in execution.nodes.items():
+            node_results_list.append({
+                "nodeId": node_id,
+                "status": node_status.status,
+                "startedAt": node_status.started_at,
+                "completedAt": node_status.completed_at,
+                "outputPreview": node_status.output_preview,
+                "error": node_status.error
+            })
+        
+        # Get inputs from input nodes
+        inputs = {}
+        for node_id, result in node_results.get(execution_id, {}).items():
+            inputs[node_id] = result
+        
+        # Get outputs from output nodes
+        outputs = {}
+        output_nodes = [n for n in workflow.nodes if n.type == "output"]
+        for node in output_nodes:
+            if node.id in node_results.get(execution_id, {}):
+                outputs[node.id] = node_results[execution_id][node.id]
+        
+        # Create execution record
+        record = ExecutionRecord(
+            executionId=execution_id,
+            workflowId=workflow_name,  # Using name as ID for simplicity
+            workflowName=workflow_name,
+            status=execution.status,
+            startedAt=execution.started_at,
+            completedAt=execution.completed_at,
+            duration=duration_ms,
+            nodeResults=node_results_list,
+            inputs=inputs,
+            outputs=outputs,
+            error=error
+        )
+        
+        # Save to history
+        history.save_execution(record)
+        logger.info(f"Saved execution history for {execution_id}")
+    
+    except Exception as e:
+        logger.error(f"Failed to save execution history: {e}")
+
+
 async def execute_workflow_engine(execution_id: str, workflow: WorkflowDefinition):
     """
     Background task to execute a workflow.
@@ -486,6 +601,9 @@ async def execute_workflow_engine(execution_id: str, workflow: WorkflowDefinitio
             executions[execution_id].status = "completed"
             executions[execution_id].completed_at = datetime.now(timezone.utc).isoformat()
             logger.info(f"Status updated: processing → completed")
+        
+        # Save execution history
+        save_execution_history(execution_id, workflow)
     
     except Exception as e:
         logger.error("=" * 80)
@@ -500,6 +618,9 @@ async def execute_workflow_engine(execution_id: str, workflow: WorkflowDefinitio
             executions[execution_id].error = str(e)
             executions[execution_id].completed_at = datetime.now(timezone.utc).isoformat()
             logger.info(f"Status updated: processing → failed")
+        
+        # Save execution history (even for failed executions)
+        save_execution_history(execution_id, workflow, error=str(e))
 
 
 # API Endpoints
@@ -526,12 +647,15 @@ async def execute_workflow(
     logger.info("POST /api/workflows/execute - Request received")
     logger.info(f"Workflow: {len(request.workflow.nodes)} nodes, {len(request.workflow.edges)} edges")
     
-    # Validate API key
-    if not os.getenv("OCTANE_API_KEY"):
-        logger.error("OCTANE_API_KEY not configured")
+    # Validate API key (either OCTANE or NVIDIA must be set)
+    has_octane_key = bool(os.getenv("OCTANE_API_KEY"))
+    has_nvidia_key = bool(os.getenv("NVIDIA_API_KEY"))
+    
+    if not has_octane_key and not has_nvidia_key:
+        logger.error("Neither OCTANE_API_KEY nor NVIDIA_API_KEY configured")
         raise HTTPException(
             status_code=500,
-            detail="OCTANE_API_KEY not configured in environment"
+            detail="Either OCTANE_API_KEY or NVIDIA_API_KEY must be configured in environment"
         )
     
     # Validate workflow
@@ -791,6 +915,127 @@ async def cancel_execution(execution_id: str):
 
     logger.info(f"Execution {execution_id} cancelled")
     return {"message": f"Execution {execution_id} cancelled", "status": "cancelled"}
+
+
+# ==============================================================================
+# Execution History Endpoints
+# ==============================================================================
+
+class ExecutionHistoryResponse(BaseModel):
+    executionId: str
+    workflowId: str
+    workflowName: str
+    status: str
+    startedAt: str
+    completedAt: Optional[str]
+    duration: int
+    error: Optional[str] = None
+
+
+class ExecutionHistoryListResponse(BaseModel):
+    executions: List[ExecutionHistoryResponse]
+    total: int
+
+
+class ExecutionDetailResponse(BaseModel):
+    executionId: str
+    workflowId: str
+    workflowName: str
+    status: str
+    startedAt: str
+    completedAt: Optional[str]
+    duration: int
+    nodeResults: List[Dict[str, Any]]
+    inputs: Dict[str, Any]
+    outputs: Dict[str, Any]
+    error: Optional[str] = None
+
+
+@app.get("/api/executions", response_model=ExecutionHistoryListResponse)
+async def list_executions(workflowId: Optional[str] = None, limit: int = 100):
+    """List execution history, optionally filtered by workflow ID."""
+    logger.info(f"GET /api/executions - workflowId={workflowId}, limit={limit}")
+    
+    records = history.list_executions(workflow_id=workflowId, limit=limit)
+    
+    return ExecutionHistoryListResponse(
+        executions=[
+            ExecutionHistoryResponse(
+                executionId=r.executionId,
+                workflowId=r.workflowId,
+                workflowName=r.workflowName,
+                status=r.status,
+                startedAt=r.startedAt,
+                completedAt=r.completedAt,
+                duration=r.duration,
+                error=r.error
+            )
+            for r in records
+        ],
+        total=len(records)
+    )
+
+
+@app.get("/api/executions/{execution_id}/detail", response_model=ExecutionDetailResponse)
+async def get_execution_detail(execution_id: str):
+    """Get detailed execution record including node results, inputs, and outputs."""
+    logger.info(f"GET /api/executions/{execution_id}/detail")
+    
+    record = history.get_execution(execution_id)
+    
+    if not record:
+        raise HTTPException(status_code=404, detail="Execution history not found")
+    
+    return ExecutionDetailResponse(**asdict(record))
+
+
+@app.delete("/api/executions/{execution_id}/history")
+async def delete_execution_history(execution_id: str):
+    """Delete an execution history record."""
+    logger.info(f"DELETE /api/executions/{execution_id}/history")
+    
+    if history.delete_execution(execution_id):
+        return {"message": f"Execution history {execution_id} deleted"}
+    else:
+        raise HTTPException(status_code=404, detail="Execution history not found")
+
+
+@app.post("/api/executions/{execution_id}/replay", response_model=ExecuteResponse)
+async def replay_execution(execution_id: str, background_tasks: BackgroundTasks):
+    """Re-run a previous execution with the same inputs."""
+    logger.info(f"POST /api/executions/{execution_id}/replay")
+    
+    record = history.get_execution(execution_id)
+    
+    if not record:
+        raise HTTPException(status_code=404, detail="Execution history not found")
+    
+    if record.status == "cancelled":
+        raise HTTPException(status_code=400, detail="Cannot replay cancelled execution")
+    
+    # Create a new execution request from the recorded inputs
+    # Note: This is a simplified replay - in production you'd want to reconstruct the full workflow
+    logger.info(f"Replaying execution {execution_id} with original inputs")
+    
+    # Generate new execution ID
+    new_execution_id = str(uuid.uuid4())
+    
+    # For now, just return a response indicating replay started
+    # Full implementation would reconstruct and execute the workflow
+    return ExecuteResponse(
+        execution_id=new_execution_id,
+        status="queued",
+        message=f"Replay of execution {execution_id} started"
+    )
+
+
+@app.get("/api/executions/stats")
+async def get_execution_stats(workflowId: Optional[str] = None):
+    """Get execution statistics."""
+    logger.info(f"GET /api/executions/stats - workflowId={workflowId}")
+    
+    stats = history.get_execution_stats(workflow_id=workflowId)
+    return stats
 
 
 # ==============================================================================

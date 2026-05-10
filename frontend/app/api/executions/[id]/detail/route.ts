@@ -4,8 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 const FASTAPI_URL = process.env.FASTAPI_URL || "http://localhost:8001";
 
 /**
- * GET /api/executions/[id]/status
- * Get the status of a workflow execution
+ * GET /api/executions/[id]/detail
+ * Get detailed execution record
  */
 export async function GET(
   request: NextRequest,
@@ -21,34 +21,25 @@ export async function GET(
       );
     }
 
-    // Forward to FastAPI backend
     const response = await fetch(
-      `${FASTAPI_URL}/api/executions/${executionId}/status`
+      `${FASTAPI_URL}/api/executions/${executionId}/detail`
     );
 
     if (!response.ok) {
       const errorData = await response.json();
       return NextResponse.json(
-        {
-          error: errorData.detail || "Failed to get execution status",
-          details: errorData,
-        },
+        { error: errorData.detail || "Failed to fetch execution detail" },
         { status: response.status }
       );
     }
 
     const data = await response.json();
-
     return NextResponse.json(data);
   } catch (error) {
-    console.error("Status polling error:", error);
+    console.error("Fetch execution detail error:", error);
     return NextResponse.json(
-      {
-        error: "Failed to poll execution status",
-        details: error instanceof Error ? error.message : String(error),
-      },
+      { error: "Failed to fetch execution detail" },
       { status: 500 }
     );
   }
 }
-

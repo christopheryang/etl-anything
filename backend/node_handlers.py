@@ -186,30 +186,32 @@ def handle_llm_node(
     execution_id: str,
     input_data: Optional[Any],
     anthropic_client: Anthropic,
+    nvidia_client: Optional[Any] = None,
     **kwargs
 ) -> str:
     """
-    Handle LLM node: Process text using Claude AI with automatic timeout retry.
-
+    Handle LLM node: Process text using Claude AI or NVIDIA NIM models.
+    
     On timeout, automatically tries fallback models from the same family
     (e.g., haiku-3 -> haiku-4-5) before giving up.
-
+    
     Args:
         node: The LLM node
         execution_id: Current execution ID
         input_data: Input text/data from previous node
         anthropic_client: Initialized Anthropic client
+        nvidia_client: Optional initialized OpenAI client for NVIDIA NIM
         **kwargs: Additional context (unused)
-
+    
     Returns:
         Processed text string
     """
     data = node.data
-
+    
     if not input_data:
         logger.error(f"[{node.id}] No input data provided")
         raise ValueError(f"LLM node {node.id} requires input from previous node")
-
+    
     # Extract text from input
     if isinstance(input_data, dict) and "text" in input_data:
         input_text = input_data["text"]
@@ -223,12 +225,71 @@ def handle_llm_node(
         )
     else:
         input_text = str(input_data)
-
+    
     logger.info(f"[{node.id}] Input text length: {len(input_text)} characters")
     logger.info(f"[{node.id}] Prompt: {data.prompt[:100]}{'...' if len(data.prompt) > 100 else ''}")
-
+    
     # Build prompt
     full_prompt = f"{data.prompt}\n\n{input_text}"
+    
+    # Determine provider from model name
+    if nvidia_client is not None and data.model in [
+        "qwen/qwen3.5-397b-a17b",
+        "minimax/minimax-m2.7",
+        "thudm/glm-4.7",
+    ]:
+        # Use NVIDIA NIM
+        return _execute_nvidia_llm(node, data, full_prompt, nvidia_client)
+    else:
+        # Use Anthropic (existing logic)
+        return _execute_anthropic_llm(node, data, full_prompt, anthropic_client)
+
+
+def _execute_nvidia_llm(node: Any, data: Any, full_prompt: str, nvidia_client: Any) -> str:
+    """Execute LLM request using NVIDIA NIM (OpenAI-compatible API).
+    
+    Supported models:
+    - qwen/qwen3.5-397b-a17b (Qwen 3.5)
+    - minimax/minimax-m2.7 (MiniMax M2.7)
+    - thudm/glm-4.7 (GLM 4.7)
+    """
+    logger.info(f"[{node.id}] Using NVIDIA NIM with model={data.model}")
+    
+    # Build messages list with optional system prompt
+    messages = []
+    if data.system_prompt:
+        messages.append({"role": "system", "content": data.system_prompt})
+    messages.append({"role": "user", "content": full_prompt})
+    
+    try:
+        logger.info(f"[{node.id}] Calling NVIDIA NIM API with model={data.model}...")
+        
+        response = nvidia_client.chat.completions.create(
+            model=data.model,
+            max_tokens=4096,
+            temperature=data.temperature if data.temperature is not None else 0.7,
+            messages=messages,
+        )
+        
+        logger.info(f"[{node.id}] NVIDIA NIM API call successful")
+        
+        # Extract response text
+        response_text = response.choices[0].message.content or ""
+        
+        logger.info(f"[{node.id}] Response length: {len(response_text)} characters")
+        logger.info(
+            f"[{node.id}] Response preview: {response_text[:150]}"
+            f"{'...' if len(response_text) > 150 else ''}"
+        )
+        return response_text
+        
+    except Exception as exc:
+        logger.error(f"[{node.id}] NVIDIA NIM API error: {exc}", exc_info=True)
+        raise RuntimeError(f"NVIDIA NIM API error: {exc}")
+
+
+def _execute_anthropic_llm(node: Any, data: Any, full_prompt: str, anthropic_client: Anthropic) -> str:
+    """Execute LLM request using Anthropic API (original logic with fallbacks)."""
 
     # Determine candidate models (primary + fallbacks)
     requested = data.model or "claude-haiku-4-5"
@@ -322,6 +383,156 @@ def handle_llm_node(
     ) from last_error
 
 
+def _convert_to_csv(data: Any) -> str:
+    """
+    Convert data to CSV format (RFC 4180 compliant).
+    
+    When format is CSV, this function automatically cleans LLM output to extract
+    only the data and headers, stripping any explanatory text, markdown formatting,
+    or metadata. Works with:
+    - Pure JSON arrays (ideal)
+    - JSON wrapped in markdown code blocks
+    - JSON embedded in text (extracted via regex)
+    - Markdown tables (parsed and converted)
+    
+    Args:
+        data: Input data (list, dict, str, or primitive)
+    
+    Returns:
+        CSV string with only headers and data rows (no metadata)
+    """
+    import csv
+    import io
+    import json as json_lib
+    import re
+    
+    def parse_markdown_table(text: str) -> list[dict] | None:
+        """
+        Parse a Markdown table into a list of dicts.
+        Returns None if not a valid markdown table.
+        """
+        lines = [line.strip() for line in text.strip().split('\n') if line.strip()]
+        
+        # Need at least 3 lines: header, separator, data
+        if len(lines) < 3:
+            return None
+        
+        # Find the header line (contains | and column names)
+        header_line = None
+        header_idx = -1
+        for i, line in enumerate(lines):
+            if line.startswith('|') and '|' in line[1:]:
+                # Check if next line is a separator line (contains :---)
+                if i + 1 < len(lines) and ':---' in lines[i + 1] or '-' in lines[i + 1]:
+                    header_line = line
+                    header_idx = i
+                    break
+        
+        if header_line is None or header_idx == -1:
+            return None
+        
+        # Parse header
+        headers = [h.strip() for h in header_line.split('|')]
+        if headers and headers[0] == '':
+            headers = headers[1:]
+        if headers and headers[-1] == '':
+            headers = headers[:-1]
+        
+        # Parse data rows (skip header and separator lines)
+        data_rows = []
+        start_idx = header_idx + 2  # Skip header and separator
+        for line in lines[start_idx:]:
+            if not line.startswith('|'):
+                continue
+            cells = [c.strip() for c in line.split('|')]
+            if cells and cells[0] == '':
+                cells = cells[1:]
+            if cells and cells[-1] == '':
+                cells = cells[:-1]
+            
+            if len(cells) == len(headers):
+                data_rows.append(dict(zip(headers, cells)))
+        
+        return data_rows if data_rows else None
+    
+    def extract_json_from_text(text: str) -> Any:
+        """
+        Extract JSON array from text that may contain markdown or explanations.
+        Returns the parsed JSON or None if not found.
+        """
+        # Try to extract from markdown code blocks first
+        if "```" in text:
+            match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', text)
+            if match:
+                text = match.group(1).strip()
+        
+        # Try to find JSON array pattern
+        json_match = re.search(r'\[\s*\{[^{}]*\}(?:\s*,\s*\{[^{}]*\})*\s*\]', text, re.DOTALL)
+        if json_match:
+            try:
+                return json_lib.loads(json_match.group(0))
+            except (json_lib.JSONDecodeError, ValueError):
+                pass
+        
+        return None
+    
+    # If input is a string, try to extract structured data
+    if isinstance(data, str):
+        # Strategy 1: Try to extract JSON (most common)
+        extracted = extract_json_from_text(data)
+        if extracted:
+            data = extracted
+        else:
+            # Strategy 2: Try to parse as Markdown table
+            parsed = parse_markdown_table(data)
+            if parsed:
+                data = parsed
+            else:
+                # Strategy 3: Try to parse the whole string as JSON
+                try:
+                    data = json_lib.loads(data)
+                except (json_lib.JSONDecodeError, ValueError):
+                    # Not JSON or Markdown table, return as single value
+                    return data
+    
+    output = io.StringIO()
+    
+    if isinstance(data, list) and len(data) > 0:
+        if isinstance(data[0], dict):
+            # List of dicts - create table with headers
+            all_keys = []
+            seen_keys = set()
+            for item in data:
+                if isinstance(item, dict):
+                    for key in item.keys():
+                        if key not in seen_keys:
+                            all_keys.append(key)
+                            seen_keys.add(key)
+            
+            if all_keys:
+                writer = csv.DictWriter(output, fieldnames=all_keys, extrasaction='ignore')
+                writer.writeheader()
+                for row in data:
+                    if isinstance(row, dict):
+                        writer.writerow(row)
+        elif len(data) > 0:
+            # Simple list - single column
+            writer = csv.writer(output)
+            for item in data:
+                writer.writerow([item])
+    elif isinstance(data, dict):
+        # Single dict - single row
+        keys = list(data.keys())
+        writer = csv.DictWriter(output, fieldnames=keys)
+        writer.writeheader()
+        writer.writerow(data)
+    else:
+        # Primitive value - just return as string
+        return str(data)
+    
+    return output.getvalue()
+
+
 def handle_output_node(
     node: Any,
     execution_id: str,
@@ -364,6 +575,12 @@ def handle_output_node(
             else:
                 json.dump(input_data, f, indent=2)
         logger.info(f"[{node.id}] Wrote JSON output")
+    elif data.format == "csv":
+        # Convert to CSV format
+        csv_content = _convert_to_csv(input_data)
+        with open(output_path, "w", newline="") as f:
+            f.write(csv_content)
+        logger.info(f"[{node.id}] Wrote CSV output")
     else:  # txt, md, or other text formats
         with open(output_path, "w") as f:
             if isinstance(input_data, str):
