@@ -2,8 +2,8 @@
 
 Complete, consolidated requirements for all features in the ETL Anything project. Each requirement set links to its detailed feature document.
 
-**Last updated:** May 9, 2026  
-**Audit status:** All 21 features audited and documented
+**Last updated:** May 10, 2026  
+**Audit status:** All 26 features audited and documented
 
 ## Feature Status Summary
 
@@ -30,11 +30,16 @@ Complete, consolidated requirements for all features in the ETL Anything project
 | F019 | Pre-Run Validation | ⚠️ Partial | Basic validation exists |
 | F020 | Help Modal | ❌ Pending | Not implemented |
 | F021 | Toast Notifications | ❌ Pending | Not implemented |
+| F022 | Execution History & Replay | ✅ Done | Backend + Frontend panel, 14 tests |
+| F023 | Batch Execution | ❌ Pending | Requirements documented |
+| F024 | Workflow Templates Library | ✅ Done | 5 built-in templates + library UI |
+| F025 | NVIDIA NIM Integration | ✅ Done | Backend complete, Frontend complete, 10 tests, live verified |
+| F026 | CSV Output Format | ✅ Done | Added CSV export with smart LLM cleaning |
 
-**Implemented (UI):** F003, F008, F016  
-**Implemented (Backend):** F002, F006, F007  
+**Implemented (UI):** F003, F008, F016, F022, F024  
+**Implemented (Backend):** F002, F006, F007, F025, F026  
 **Partial:** F001, F019  
-**Pending:** F004, F005, F009, F010, F011, F012, F013, F014, F015, F017, F018, F020, F021
+**Pending:** F004, F005, F009, F010, F011, F012, F013, F014, F015, F017, F018, F020, F021, F023
 
 ---
 
@@ -178,6 +183,42 @@ Complete, consolidated requirements for all features in the ETL Anything project
 
 - Replace all `alert()` calls with a toast/notification system
 
+### F022 — Execution History & Replay
+[Feature F022](./features/Feature%20F022%20-%20Execution%20History%20&%20Replay.md) | **Status: Done**
+
+- Users can view a history panel showing all past workflow executions
+- Each execution shows: workflow name, status icon, timestamp, duration
+- Click execution to view detailed node results, inputs, and outputs
+- Filter executions by workflow name
+- Replay button to re-run execution with original inputs
+- Delete button to remove execution records
+- Backend stores history in `backend/executions/` as JSON files
+- Auto-cleanup: max 100 executions per workflow, 30-day retention
+- API endpoints: GET /api/executions, GET /api/executions/{id}/detail, DELETE, POST /replay
+- 14 unit tests pass covering save, get, list, delete, cleanup, stats
+
+### F023 — Batch Execution
+[Feature F023](./features/Feature%20F023%20-%20Batch%20Execution.md) | **Status: Pending**
+
+- Execute multiple workflows in sequence or parallel
+- Monitor progress of all batch runs
+- Download all outputs as ZIP file
+
+### F024 — Workflow Templates Library
+[Feature F024](./features/Feature%20F024%20-%20Workflow%20Templates.md) | **Status: Done**
+
+- Template Library modal with grid/list view
+- 3 built-in templates: Simple ETL, Document Classifier, Data Validator
+- Filter by category (ETL, Analysis, Validation)
+- Search by name, description, or tags
+- Preview template before loading
+- One-click load onto canvas
+
+|- **F025: NVIDIA NIM Integration** — Backend complete (10 tests passing), Frontend complete (model dropdown updated)
+   - Backend: Added `nvidia_client` (OpenAI-compatible) with automatic routing based on model selection
+   - Frontend: Added 7 NVIDIA models to ReasoningNode dropdown (Qwen 3.5 default)
+   - Models: Qwen 3.5 397B, Llama 3.1 405B/70B, Gemma 2B
+   - Integration test exposed workflow execution flow issue (separate from NVIDIA integration)
 ---
 
 ## Custom Features (Added Beyond Original 21)
@@ -187,3 +228,6 @@ These features were added during development but were not in the original F001-F
 - **Zoom Controls** — Custom zoom group in header (ZoomOut, editable percentage, ZoomIn, Fit)
 - **Settings Menu** — Hamburger menu with Theme toggle and MiniMap toggle
 - **Editable Zoom** — Click the zoom percentage to type a custom value (10-200%)
+- **Execution History & Replay **(F022) — View past executions, replay with original inputs
+- **Workflow Templates **(F024) — Pre-built workflow library with 3 templates
+- **NVIDIA NIM Integration **(F025) — Support for NVIDIA-hosted models (Qwen, Llama, Gemma)

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 // GET /api/workflows - list saved workflows
 export async function GET() {
   try {
-    const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
+    const backendUrl = process.env.BACKEND_URL || "http://localhost:8001";
     const response = await fetch(`${backendUrl}/api/workflows`);
     
     if (!response.ok) {
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
-    const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
+    const backendUrl = process.env.BACKEND_URL || "http://localhost:8001";
     const response = await fetch(`${backendUrl}/api/workflows`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

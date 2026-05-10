@@ -18,6 +18,10 @@ export const OutputNode: React.FC<NodeProps<OutputNodeData>> = ({
   // Initialize data fields if not set
   if (!data.format) data.format = "json";
   if (!data.fileName) data.fileName = "output.json";
+  
+  // Local state for better reactivity
+  const [format, setFormat] = useState(data.format ?? "json");
+  const [fileName, setFileName] = useState(data.fileName ?? "output.json");
 
   return (
     <div
@@ -58,46 +62,54 @@ export const OutputNode: React.FC<NodeProps<OutputNodeData>> = ({
           className="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded nodrag"
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
-        >
-<label className="text-xs font-medium text-gray-700 dark:text-gray-200">
- Output Format:
- </label>
-          <select
-            className="w-full mt-1 text-xs border rounded px-2 py-1 nodrag"
-            value={data.format}
-            onChange={(e) => {
-              data.format = e.target.value as OutputNodeData["format"];
-              // Auto-update extension when format changes
-              const baseName =
-                data.fileName?.replace(/\.(txt|json|md)$/, "") || "output";
-              data.fileName = `${baseName}.${e.target.value}`;
-            }}
-            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <label className="text-xs font-medium text-gray-700 dark:text-gray-200">
+              Output Format:
+            </label>
+            <select
+              className="w-full mt-1 text-xs border rounded px-2 py-1 nodrag"
+              value={format}
+              onChange={(e) => {
+                const newFormat = e.target.value as OutputNodeData["format"];
+                setFormat(newFormat);
+                data.format = newFormat;
+                // Auto-update extension when format changes
+                const baseName =
+                  data.fileName?.replace(/\.(txt|json|md)$/, "") || "output";
+                data.fileName = `${baseName}.${newFormat}`;
+                setFileName(data.fileName);
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
           >
             <option value="json">JSON</option>
             <option value="txt">Text</option>
             <option value="md">Markdown</option>
+            <option value="csv">CSV</option>
           </select>
 
-<label className="text-xs font-medium text-gray-700 dark:text-gray-200 mt-2 block">
- Output Filename:
- </label>
-          <input
-            type="text"
-            className="w-full mt-1 text-xs border rounded px-2 py-1 nodrag"
-            placeholder="output.json"
-            value={data.fileName}
-            onChange={(e) => {
-              data.fileName = e.target.value;
-            }}
-            onMouseDown={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
+            <label className="text-xs font-medium text-gray-700 dark:text-gray-200 mt-2 block">
+              Output Filename:
+            </label>
+            <input
+              type="text"
+              className="w-full mt-1 text-xs border rounded px-2 py-1 nodrag"
+              placeholder="output.json"
+              value={fileName}
+              onChange={(e) => {
+                const newVal = e.target.value;
+                setFileName(newVal);
+                data.fileName = newVal;
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        )}
 
       <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">
         {data.fileName
-          ? `📝 ${data.fileName}`
+          ? `${data.format?.toUpperCase() || 'TXT'}: ${data.fileName}`
           : data.label || "Configure output"}
       </div>
     </div>

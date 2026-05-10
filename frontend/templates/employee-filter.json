@@ -1,0 +1,55 @@
+{
+  "id": "employee-filter",
+  "name": "Employee Data Filter",
+  "description": "Filter and extract specific employees from a CSV dataset using AI. Demonstrates CSV input and multiple output formats.",
+  "category": "ETL",
+  "tags": ["csv", "employee", "filter", "data-extraction"],
+  "workflow": {
+    "nodes": [
+      {
+        "id": "input-1",
+        "type": "input",
+        "position": { "x": 100, "y": 200 },
+        "data": {
+          "label": "Employee CSV",
+          "fileName": "",
+          "fileId": ""
+        }
+      },
+      {
+        "id": "llm-1",
+        "type": "reasoning",
+        "position": { "x": 400, "y": 200 },
+        "data": {
+          "label": "Filter Chicago Employees",
+          "prompt": "Extract ALL employees where city equals 'Chicago' from the input data. Return result as a JSON array. RULES: 1) ONLY output a JSON array starting with [ and ending with ], 2) NO markdown, 3) NO code blocks, 4) NO text before '[', 5) NO text after ']', 6) NO explanations. Example format: [{\"employee_id\":\"EMP001\",\"first_name\":\"John\",\"last_name\":\"Doe\",\"department\":\"Sales\",\"job_title\":\"Sales Rep\",\"city\":\"Chicago\"}]",
+          "model": "qwen/qwen3.5-397b-a17b",
+          "temperature": 0.0,
+          "systemPrompt": "You are a JSON API endpoint. Your response must be ONLY a valid JSON array. NO markdown formatting. NO code blocks. NO explanatory text. If you output anything other than pure JSON starting with [ and ending with ], the system will fail. Begin your response with '[' and end with ']'."
+        }
+      },
+      {
+        "id": "output-1",
+        "type": "output",
+        "position": { "x": 700, "y": 200 },
+        "data": {
+          "label": "Filtered CSV",
+          "fileName": "chicago_employees.csv",
+          "format": "csv"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge-1",
+        "source": "input-1",
+        "target": "llm-1"
+      },
+      {
+        "id": "edge-2",
+        "source": "llm-1",
+        "target": "output-1"
+      }
+    ]
+  }
+}

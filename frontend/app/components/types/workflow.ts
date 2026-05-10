@@ -12,7 +12,13 @@ export interface InputNodeData extends NodeData {
 
 export interface ReasoningNodeData extends NodeData {
   prompt?: string;
-  model?: "claude-haiku-4-5" | "claude-sonnet-4-7" | "claude-opus-4-7";
+  model?: 
+    | "haiku-4.5" 
+    | "sonnet-4.7" 
+    | "opus-4.7"
+    | "qwen/qwen3.5-397b-a17b"
+    | "minimax/minimax-m2.7"
+    | "thudm/glm-4.7";
   temperature?: number;
   system_prompt?: string;
 }
@@ -30,6 +36,6 @@ export interface RuleNodeData extends NodeData {
 
 export interface OutputNodeData extends NodeData {
   fileName?: string;
-  format?: "txt" | "json" | "md";
+  format?: "txt" | "json" | "md" | "csv";
 }
 
