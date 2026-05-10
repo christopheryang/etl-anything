@@ -45,3 +45,4 @@ backend/outputs/*
 !backend/outputs/.gitkeep
 
 backend/workflows/*
+backend/executions/*

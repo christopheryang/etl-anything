@@ -1,0 +1,93 @@
+{
+  "id": "document-classifier",
+  "name": "Document Classifier",
+  "description": "Classify documents into categories using AI, then route to different outputs based on rules. Demonstrates branching logic.",
+  "category": "Analysis",
+  "tags": ["classification", "rules", "branching", "documents"],
+  "workflow": {
+    "nodes": [
+      {
+        "id": "input-1",
+        "type": "input",
+        "position": { "x": 100, "y": 200 },
+        "data": {
+          "label": "Input Document",
+          "fileName": "",
+          "fileId": ""
+        }
+      },
+      {
+        "id": "llm-1",
+        "type": "reasoning",
+        "position": { "x": 400, "y": 200 },
+        "data": {
+          "label": "Classify",
+          "prompt": "Analyze this document and determine if it is: (a) a legal contract, (b) a financial report, or (c) a technical document. Respond with only one of these three categories.",
+          "model": "qwen/qwen3.5-397b-a17b",
+          "temperature": 0.3,
+          "systemPrompt": "You are a document classification expert. Be precise and concise."
+        }
+      },
+      {
+        "id": "rule-1",
+        "type": "rule",
+        "position": { "x": 700, "y": 200 },
+        "data": {
+          "label": "Is Legal?",
+          "conditions": [
+            {
+              "variable": "output",
+              "operator": "contains",
+              "value": "legal"
+            }
+          ],
+          "logic": "AND"
+        }
+      },
+      {
+        "id": "output-legal",
+        "type": "output",
+        "position": { "x": 1000, "y": 100 },
+        "data": {
+          "label": "Legal Output",
+          "fileName": "legal-documents",
+          "format": "txt"
+        }
+      },
+      {
+        "id": "output-other",
+        "type": "output",
+        "position": { "x": 1000, "y": 300 },
+        "data": {
+          "label": "Other Output",
+          "fileName": "other-documents",
+          "format": "txt"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge-1",
+        "source": "input-1",
+        "target": "llm-1"
+      },
+      {
+        "id": "edge-2",
+        "source": "llm-1",
+        "target": "rule-1"
+      },
+      {
+        "id": "edge-true",
+        "source": "rule-1",
+        "target": "output-legal",
+        "sourceHandle": "true"
+      },
+      {
+        "id": "edge-false",
+        "source": "rule-1",
+        "target": "output-other",
+        "sourceHandle": "false"
+      }
+    ]
+  }
+}

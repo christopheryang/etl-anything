@@ -13,7 +13,7 @@ export const ReasoningNode: React.FC<NodeProps<ReasoningNodeData>> = ({
   const [temperature, setTemperature] = useState(data.temperature ?? 0.7);
   const [prompt, setPrompt] = useState(data.prompt ?? "");
   const [model, setModel] = useState<ReasoningNodeData["model"]>(
-    data.model ?? "claude-haiku-4-5"
+    data.model ?? "qwen/qwen3.5-397b-a17b"
   );
 
   const handleDelete = () => {
@@ -22,7 +22,7 @@ export const ReasoningNode: React.FC<NodeProps<ReasoningNodeData>> = ({
 
   // Initialize data fields if not set
   if (!data.prompt) data.prompt = "";
-  if (!data.model) data.model = "claude-haiku-4-5";
+  if (!data.model) data.model = "qwen/qwen3.5-397b-a17b";
   if (data.temperature === undefined) data.temperature = 0.7;
 
   return (
@@ -80,7 +80,12 @@ export const ReasoningNode: React.FC<NodeProps<ReasoningNodeData>> = ({
             onClick={(e) => e.stopPropagation()}
             onMouseUp={(e) => e.stopPropagation()}
           >
-            <option value="claude-haiku-4-5">Claude Haiku 4.5</option>
+            <option value="haiku-4.5">Claude Haiku 4.5 (Anthropic)</option>
+            <option value="sonnet-4.7">Claude Sonnet 4.7 (Anthropic)</option>
+            <option value="opus-4.7">Claude Opus 4.7 (Anthropic)</option>
+            <option value="qwen/qwen3.5-397b-a17b" selected>Qwen 3.5 397B (NVIDIA)</option>
+            <option value="minimax/minimax-m2.7">MiniMax M2.7 (NVIDIA)</option>
+            <option value="thudm/glm-4.7">GLM 4.7 (NVIDIA)</option>
           </select>
 
 <label className="text-xs font-medium text-gray-700 dark:text-gray-200 mt-2 block">
@@ -119,7 +124,13 @@ export const ReasoningNode: React.FC<NodeProps<ReasoningNodeData>> = ({
       )}
 
       <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">
-        {model === "claude-haiku-4-5" ? "Claude Haiku 4.5" : model} -{" "}
+        {model === "qwen/qwen3.5-397b-a17b" ? "Qwen 3.5 397B" : 
+         model === "minimax/minimax-m2.7" ? "MiniMax M2.7" :
+         model === "thudm/glm-4.7" ? "GLM 4.7" :
+         model === "haiku-4.5" ? "Claude Haiku 4.5" :
+         model === "sonnet-4.7" ? "Claude Sonnet 4.7" :
+         model === "opus-4.7" ? "Claude Opus 4.7" : 
+         model.split('/').pop()?.substring(0, 30)} - {" "}
         {prompt ? "Configured" : "Set prompt"}
       </div>
       <Handle

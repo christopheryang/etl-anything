@@ -1,0 +1,55 @@
+{
+  "id": "simple-etl",
+  "name": "Simple ETL Pipeline",
+  "description": "Basic Extract-Transform-Load workflow: read a file, transform with AI, save output. Great starting point for any data processing task.",
+  "category": "ETL",
+  "tags": ["etl", "beginner", "file-processing"],
+  "workflow": {
+    "nodes": [
+      {
+        "id": "input-1",
+        "type": "input",
+        "position": { "x": 100, "y": 200 },
+        "data": {
+          "label": "Input File",
+          "fileName": "",
+          "fileId": ""
+        }
+      },
+      {
+        "id": "llm-1",
+        "type": "reasoning",
+        "position": { "x": 400, "y": 200 },
+        "data": {
+          "label": "Transform",
+          "prompt": "Summarize the following data in 3 bullet points:",
+          "model": "qwen/qwen3.5-397b-a17b",
+          "temperature": 0.7,
+          "systemPrompt": ""
+        }
+      },
+      {
+        "id": "output-1",
+        "type": "output",
+        "position": { "x": 700, "y": 200 },
+        "data": {
+          "label": "Save Result",
+          "fileName": "summary",
+          "format": "json"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge-1",
+        "source": "input-1",
+        "target": "llm-1"
+      },
+      {
+        "id": "edge-2",
+        "source": "llm-1",
+        "target": "output-1"
+      }
+    ]
+  }
+}

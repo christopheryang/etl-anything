@@ -1,0 +1,93 @@
+{
+  "id": "sentiment-analysis",
+  "name": "Sentiment Analysis",
+  "description": "Analyze text data for sentiment (positive, negative, neutral) and route accordingly. Useful for customer feedback processing.",
+  "category": "Analysis",
+  "tags": ["sentiment", "nlp", "classification", "branching"],
+  "workflow": {
+    "nodes": [
+      {
+        "id": "input-1",
+        "type": "input",
+        "position": { "x": 100, "y": 200 },
+        "data": {
+          "label": "Feedback Data",
+          "fileName": "",
+          "fileId": ""
+        }
+      },
+      {
+        "id": "llm-1",
+        "type": "reasoning",
+        "position": { "x": 400, "y": 200 },
+        "data": {
+          "label": "Analyze Sentiment",
+          "prompt": "Analyze the sentiment of each item in this data. Classify each as POSITIVE, NEGATIVE, or NEUTRAL. Return a JSON array with the original text and its sentiment classification.",
+          "model": "qwen/qwen3.5-397b-a17b",
+          "temperature": 0.3,
+          "systemPrompt": "You are a sentiment analysis expert. Be consistent and objective in your classifications."
+        }
+      },
+      {
+        "id": "rule-1",
+        "type": "rule",
+        "position": { "x": 700, "y": 200 },
+        "data": {
+          "label": "Has Negative?",
+          "conditions": [
+            {
+              "variable": "output",
+              "operator": "contains",
+              "value": "NEGATIVE"
+            }
+          ],
+          "logic": "OR"
+        }
+      },
+      {
+        "id": "output-alert",
+        "type": "output",
+        "position": { "x": 1000, "y": 100 },
+        "data": {
+          "label": "Alert Output",
+          "fileName": "negative-sentiment-alert",
+          "format": "json"
+        }
+      },
+      {
+        "id": "output-positive",
+        "type": "output",
+        "position": { "x": 1000, "y": 300 },
+        "data": {
+          "label": "Positive Log",
+          "fileName": "positive-sentiment",
+          "format": "json"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge-1",
+        "source": "input-1",
+        "target": "llm-1"
+      },
+      {
+        "id": "edge-2",
+        "source": "llm-1",
+        "target": "rule-1"
+      },
+      {
+        "id": "edge-true",
+        "source": "rule-1",
+        "target": "output-alert",
+        "sourceHandle": "true"
+      },
+      {
+        "id": "edge-false",
+        "source": "rule-1",
+        "target": "output-positive",
+        "sourceHandle": "false"
+      }
+    ]
+  }
+}

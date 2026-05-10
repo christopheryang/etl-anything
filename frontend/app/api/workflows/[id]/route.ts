@@ -7,7 +7,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
+    const backendUrl = process.env.BACKEND_URL || "http://localhost:8001";
     const response = await fetch(`${backendUrl}/api/workflows/${id}`);
     
     if (!response.ok) {
@@ -35,7 +35,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
+    const backendUrl = process.env.BACKEND_URL || "http://localhost:8001";
     const response = await fetch(`${backendUrl}/api/workflows/${id}`, {
       method: "DELETE",
     });

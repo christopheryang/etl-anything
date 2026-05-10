@@ -14,12 +14,14 @@ import ReactFlow, {
   ReactFlowInstance,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { Play, Save, Download, ZoomIn, ZoomOut, Maximize2, Menu, X, Moon, Sun } from "lucide-react";
+import { Play, Save, Download, ZoomIn, ZoomOut, Maximize2, Menu, X, Moon, Sun, Clock, BookOpen } from "lucide-react";
 import { useTheme } from "next-themes";
 import { nodeTypes } from "./nodes";
 import { Sidebar } from "./Sidebar";
 import { NodeData } from "../types/workflow";
 import { NODE_CONFIGS } from "./nodeConfig";
+import ExecutionHistoryPanel from "./ExecutionHistoryPanel";
+import TemplateLibrary from "./TemplateLibrary";
 
 const WorkflowCanvas: React.FC = () => {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -39,6 +41,8 @@ const WorkflowCanvas: React.FC = () => {
   );
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showMiniMap, setShowMiniMap] = useState(true);
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false);
+  const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
   const [editingZoom, setEditingZoom] = useState(false);
   const [zoomInputValue, setZoomInputValue] = useState("100");
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -373,6 +377,20 @@ const WorkflowCanvas: React.FC = () => {
     }
   };
 
+  const loadTemplate = (workflow: any) => {
+    // Load template workflow onto canvas
+    setNodes(workflow.nodes.map((node: any) => ({
+      ...node,
+      data: node.data,
+    })));
+    setEdges(workflow.edges.map((edge: any) => ({
+      ...edge,
+      type: edge.type || 'default',
+    })));
+    setWorkflowName(`Template: ${new Date().toLocaleDateString()}`);
+    fitView({ padding: 0.3, duration: 300 });
+  };
+
   return (
  <div className="w-full h-screen bg-gray-50 dark:bg-gray-950">
  {/* Header */}
@@ -462,10 +480,24 @@ const WorkflowCanvas: React.FC = () => {
               Download Output
             </button>
           )}
- <button className="flex items-center gap-2 px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800 transition-colors">
- <Save className="w-4 h-4" />
- Save
- </button>
+<button className="flex items-center gap-2 px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800 transition-colors">
+<Save className="w-4 h-4" />
+Save
+</button>
+<button
+onClick={() => setShowHistoryPanel(true)}
+className="flex items-center gap-2 px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800 transition-colors"
+>
+<Clock className="w-4 h-4" />
+History
+</button>
+<button
+onClick={() => setShowTemplateLibrary(true)}
+className="flex items-center gap-2 px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800 transition-colors"
+>
+<BookOpen className="w-4 h-4" />
+Templates
+</button>
 
  {/* Settings menu — far right */}
  <button
@@ -601,6 +633,19 @@ const WorkflowCanvas: React.FC = () => {
         </ReactFlow>
 
         <Sidebar />
+        
+        {/* Execution History Panel */}
+        <ExecutionHistoryPanel
+          isOpen={showHistoryPanel}
+          onClose={() => setShowHistoryPanel(false)}
+        />
+        
+        {/* Template Library Modal */}
+        <TemplateLibrary
+          isOpen={showTemplateLibrary}
+          onClose={() => setShowTemplateLibrary(false)}
+          onLoadTemplate={loadTemplate}
+        />
       </div>
     </div>
   );
