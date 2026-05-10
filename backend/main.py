@@ -3,9 +3,9 @@ from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any, List, Union, Literal
+from typing import Optional, Dict, Any, List, Union, Literal, Tuple
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 from pathlib import Path
 import json
@@ -21,6 +21,7 @@ from node_handlers import (
     handle_input_node,
     handle_llm_node,
     handle_output_node,
+    handle_rule_node,
     handle_langgraph_node,
 )
 
@@ -67,6 +68,18 @@ class LLMNodeData(BaseModel):
     prompt: str
     model: str
     temperature: Optional[float] = 0.7
+    system_prompt: Optional[str] = None  # Optional system-level instructions
+
+
+class RuleCondition(BaseModel):
+    variable: str
+    operator: str
+    value: str
+
+
+class RuleNodeData(BaseModel):
+    conditions: List[RuleCondition] = []
+    logic: Literal["AND", "OR"] = "AND"
 
 
 class OutputNodeData(BaseModel):
@@ -76,15 +89,16 @@ class OutputNodeData(BaseModel):
 
 class Node(BaseModel):
     id: str
-    type: Literal["input", "llm", "output"]
+    type: str  # "input", "llm", "output", "rule", etc. — execute_node validates
     position: Dict[str, float]
-    data: Union[InputNodeData, LLMNodeData, OutputNodeData]
+    data: Union[InputNodeData, LLMNodeData, OutputNodeData, RuleNodeData, Dict[str, Any]]
 
 
 class Edge(BaseModel):
     id: str
     source: str
     target: str
+    sourceHandle: Optional[str] = None  # for rule node branching ('true' or 'false')
 
 
 class WorkflowDefinition(BaseModel):
@@ -141,6 +155,7 @@ NODE_HANDLERS = {
     "input": handle_input_node,
     "llm": handle_llm_node,
     "output": handle_output_node,
+    "rule": handle_rule_node,
 }
 
 
@@ -167,8 +182,8 @@ def parse_workflow_graph(workflow: WorkflowDefinition) -> tuple:
     
     # Build adjacency list: {source_id → [target_ids]}
     adjacency_list: Dict[str, List[str]] = {node.id: [] for node in workflow.nodes}
-    incoming_edges: Dict[str, List[str]] = {node.id: [] for node in workflow.nodes}
-    
+    incoming_edges: Dict[str, List[Tuple[str, Optional[str]]]] = {node.id: [] for node in workflow.nodes}
+
     # Validate edges and build adjacency lists
     for edge in workflow.edges:
         if edge.source not in node_lookup:
@@ -177,18 +192,33 @@ def parse_workflow_graph(workflow: WorkflowDefinition) -> tuple:
         if edge.target not in node_lookup:
             logger.error(f"Edge validation failed: target '{edge.target}' not found")
             raise ValueError(f"Edge target '{edge.target}' does not exist in nodes")
-        
+
         adjacency_list[edge.source].append(edge.target)
-        incoming_edges[edge.target].append(edge.source)
-        logger.info(f"Edge: {edge.source} → {edge.target}")
+        # Store (source_id, sourceHandle) to support rule node branching
+        incoming_edges[edge.target].append((edge.source, edge.sourceHandle))
+        logger.info(f"Edge: {edge.source} → {edge.target} (handle={edge.sourceHandle})")
     
     # Find start nodes (nodes with no incoming edges)
     start_nodes = [node_id for node_id, incoming in incoming_edges.items() if not incoming]
     logger.info(f"Start nodes (no incoming edges): {start_nodes}")
-    
+
     if not start_nodes:
-        logger.error("Workflow validation failed: No start nodes found")
-        raise ValueError("Workflow must have at least one start node (node with no incoming edges)")
+        # Check if the graph is cyclic (every node has at least one incoming edge)
+        # vs just being malformed (isolated nodes without edges at all)
+        total_incoming = sum(len(incoming) for incoming in incoming_edges.values())
+        if total_incoming == len(incoming_edges) and len(incoming_edges) > 1:
+            logger.error("Workflow validation failed: Graph contains a cycle")
+            raise ValueError(
+                "Workflow contains a circular dependency: every node has at least one "
+                "incoming edge, so there is no starting point. Break the cycle by "
+                "removing one or more edges."
+            )
+        else:
+            logger.error("Workflow validation failed: No start nodes found")
+            raise ValueError(
+                "Workflow must have at least one start node (a node with no incoming edges). "
+                "This may indicate isolated nodes or a disconnected graph."
+            )
     
     # Validate input nodes have fileId
     for node in workflow.nodes:
@@ -203,7 +233,7 @@ def parse_workflow_graph(workflow: WorkflowDefinition) -> tuple:
     
     logger.info("Workflow graph parsed successfully")
     logger.info("=" * 80)
-    return node_lookup, adjacency_list, start_nodes
+    return node_lookup, adjacency_list, incoming_edges, start_nodes
 
 
 def execute_node(
@@ -248,17 +278,19 @@ def execute_node_recursive(
     node_id: str,
     node_lookup: Dict[str, Node],
     adjacency_list: Dict[str, List[str]],
+    incoming_edges: Dict[str, List[str]],
     execution_id: str,
     results: Dict[str, Any],
     visited: set
 ) -> None:
     """
     Recursively execute a node and its downstream nodes.
-    
+
     Args:
         node_id: ID of the node to execute
         node_lookup: Map of node_id to Node
         adjacency_list: Map of node_id to list of downstream node_ids
+        incoming_edges: Map of node_id to list of upstream node_ids
         execution_id: Current execution ID
         results: Dictionary to store node results
         visited: Set of already visited nodes
@@ -266,43 +298,66 @@ def execute_node_recursive(
     if node_id in visited:
         logger.debug(f"[{node_id}] Already visited, skipping")
         return
-    
+
     visited.add(node_id)
     node = node_lookup[node_id]
-    
+
     logger.info("-" * 60)
     logger.info(f"[{node_id}] Starting node execution ({node.type})")
-    
+
     # Update node status to processing
     if execution_id in executions:
         executions[execution_id].nodes[node_id].status = "processing"
-        executions[execution_id].nodes[node_id].started_at = datetime.utcnow().isoformat()
+        executions[execution_id].nodes[node_id].started_at = datetime.now(timezone.utc).isoformat()
         executions[execution_id].progress.current_node = node_id
-    
+
     try:
-        # Get input from previous node (if any)
-        input_data = None
-        # Find incoming edges to this node
-        for source_id, targets in adjacency_list.items():
-            if node_id in targets and source_id in results:
-                input_data = results[source_id]
-                logger.info(f"[{node_id}] Received input from node: {source_id}")
-                break
-        
-        if input_data is None and node.type != "input":
-            logger.warning(f"[{node_id}] No input data found (expected for {node.type} node)")
-        
+        # Get all inputs from upstream nodes
+        upstream_ids = incoming_edges.get(node_id, [])
+        upstream_results = [results[sid] for sid in upstream_ids if sid in results]
+
+        if upstream_results:
+            # Log all sources
+            for sid in upstream_ids:
+                if sid in results:
+                    logger.info(f"[{node_id}] Received input from node: {sid}")
+
+        # Determine what to pass to the node handler
+        if node.type == "input":
+            # Input nodes don't need upstream data
+            input_data = None
+        elif len(upstream_results) == 1:
+            # Single upstream: pass the result directly (backward compatible)
+            input_data = upstream_results[0]
+        elif len(upstream_results) > 1:
+            # Multiple upstreams (DAG merge): pass list so handler can decide
+            logger.info(f"[{node_id}] Multiple upstream results ({len(upstream_results)}), passing as list")
+            input_data = upstream_results
+        else:
+            # No upstream results yet
+            input_data = None
+            if node.type != "input":
+                logger.warning(f"[{node_id}] No input data found (expected for {node.type} node)")
+
         # Execute the node
         output = execute_node(node, execution_id, input_data)
-        
+
         # Store result
         results[node_id] = output
+
+        # Determine which downstream path to follow for rule nodes
+        # Rule nodes return path='true' or path='false' based on condition evaluation
+        downstream_filter: Optional[str] = None
+        if node.type == "rule" and isinstance(output, dict) and "path" in output:
+            downstream_filter = output["path"]
+            logger.info(f"[{node_id}] Rule node branching: path='{downstream_filter}'")
+
         logger.info(f"[{node_id}] Node execution completed successfully")
         
         # Update node status to completed
         if execution_id in executions:
             executions[execution_id].nodes[node_id].status = "completed"
-            executions[execution_id].nodes[node_id].completed_at = datetime.utcnow().isoformat()
+            executions[execution_id].nodes[node_id].completed_at = datetime.now(timezone.utc).isoformat()
             
             # Store output preview (first 200 chars)
             output_str = str(output)
@@ -317,11 +372,31 @@ def execute_node_recursive(
         downstream_nodes = adjacency_list[node_id]
         if downstream_nodes:
             logger.info(f"[{node_id}] Processing {len(downstream_nodes)} downstream node(s): {downstream_nodes}")
+
+            # For rule nodes, filter downstream to only follow the matching path
+            if downstream_filter is not None:
+                # incoming_edges[target] = [(source_id, sourceHandle), ...]
+                # Filter: only include target if there's an incoming edge where sourceHandle matches downstream_filter
+                filtered: List[str] = []
+                for dn_id in downstream_nodes:
+                    # Check if there's an edge from current node to dn_id with matching sourceHandle
+                    for src_id, handle in incoming_edges.get(dn_id, []):
+                        if src_id == node_id and handle == downstream_filter:
+                            filtered.append(dn_id)
+                            break
+                if filtered:
+                    logger.info(f"[{node_id}] Branching: following path '{downstream_filter}' to nodes: {filtered}")
+                    downstream_nodes = filtered
+                else:
+                    logger.info(f"[{node_id}] Branching: no downstream nodes for path '{downstream_filter}'")
+                    downstream_nodes = []
+
             for downstream_id in downstream_nodes:
                 execute_node_recursive(
                     downstream_id,
                     node_lookup,
                     adjacency_list,
+                    incoming_edges,
                     execution_id,
                     results,
                     visited
@@ -336,7 +411,7 @@ def execute_node_recursive(
         if execution_id in executions:
             executions[execution_id].nodes[node_id].status = "failed"
             executions[execution_id].nodes[node_id].error = str(e)
-            executions[execution_id].nodes[node_id].completed_at = datetime.utcnow().isoformat()
+            executions[execution_id].nodes[node_id].completed_at = datetime.now(timezone.utc).isoformat()
         
         # Mark downstream nodes as skipped
         downstream_nodes = adjacency_list[node_id]
@@ -371,7 +446,7 @@ async def execute_workflow_engine(execution_id: str, workflow: WorkflowDefinitio
             logger.info(f"Status updated: queued → processing")
         
         # Parse workflow graph
-        node_lookup, adjacency_list, start_nodes = parse_workflow_graph(workflow)
+        node_lookup, adjacency_list, incoming_edges, start_nodes = parse_workflow_graph(workflow)
         
         # Initialize results storage
         results: Dict[str, Any] = {}
@@ -389,6 +464,7 @@ async def execute_workflow_engine(execution_id: str, workflow: WorkflowDefinitio
                 start_node_id,
                 node_lookup,
                 adjacency_list,
+                incoming_edges,
                 execution_id,
                 results,
                 visited
@@ -408,7 +484,7 @@ async def execute_workflow_engine(execution_id: str, workflow: WorkflowDefinitio
         # Mark execution as completed
         if execution_id in executions:
             executions[execution_id].status = "completed"
-            executions[execution_id].completed_at = datetime.utcnow().isoformat()
+            executions[execution_id].completed_at = datetime.now(timezone.utc).isoformat()
             logger.info(f"Status updated: processing → completed")
     
     except Exception as e:
@@ -422,7 +498,7 @@ async def execute_workflow_engine(execution_id: str, workflow: WorkflowDefinitio
         if execution_id in executions:
             executions[execution_id].status = "failed"
             executions[execution_id].error = str(e)
-            executions[execution_id].completed_at = datetime.utcnow().isoformat()
+            executions[execution_id].completed_at = datetime.now(timezone.utc).isoformat()
             logger.info(f"Status updated: processing → failed")
 
 
@@ -483,7 +559,7 @@ async def execute_workflow(
             completed_nodes=0
         ),
         nodes=node_statuses,
-        started_at=datetime.utcnow().isoformat()
+        started_at=datetime.now(timezone.utc).isoformat()
     )
     
     logger.info(f"Execution queued, starting background task...")
@@ -585,6 +661,172 @@ async def download_execution_output(execution_id: str):
             "Content-Disposition": f'attachment; filename="{output_file.name}"'
         }
     )
+
+
+# ==============================================================================
+# Workflow Save / Load Endpoints
+# ==============================================================================
+
+WORKFLOWS_DIR = Path(os.getenv("WORKFLOWS_DIR", str(Path(__file__).parent / "workflows")))
+WORKFLOWS_DIR.mkdir(exist_ok=True)
+
+
+class SaveWorkflowRequest(BaseModel):
+    name: str
+    description: Optional[str] = ""
+    workflow: WorkflowDefinition
+
+
+class WorkflowMetadata(BaseModel):
+    id: str
+    name: str
+    description: Optional[str]
+    created_at: str
+    updated_at: str
+    node_count: int
+    edge_count: int
+
+
+class WorkflowListResponse(BaseModel):
+    workflows: List[WorkflowMetadata]
+
+
+@app.get("/api/workflows", response_model=WorkflowListResponse)
+async def list_workflows():
+    """List all saved workflows."""
+    workflows = []
+    for wf_dir in WORKFLOWS_DIR.iterdir():
+        if not wf_dir.is_dir():
+            continue
+        meta_path = wf_dir / "metadata.json"
+        if not meta_path.exists():
+            continue
+        try:
+            meta = json.loads(meta_path.read_text())
+            workflows.append(WorkflowMetadata(**meta))
+        except Exception:
+            continue
+    workflows.sort(key=lambda w: w.updated_at, reverse=True)
+    return WorkflowListResponse(workflows=workflows)
+
+
+@app.post("/api/workflows", response_model=WorkflowMetadata)
+async def save_workflow(request: SaveWorkflowRequest):
+    """Save a workflow definition to disk."""
+    workflow_id = str(uuid.uuid4())
+    wf_dir = WORKFLOWS_DIR / workflow_id
+    wf_dir.mkdir(exist_ok=True)
+
+    now = datetime.now(timezone.utc).isoformat()
+    metadata = {
+        "id": workflow_id,
+        "name": request.name,
+        "description": request.description,
+        "created_at": now,
+        "updated_at": now,
+        "node_count": len(request.workflow.nodes),
+        "edge_count": len(request.workflow.edges),
+    }
+    (wf_dir / "metadata.json").write_text(json.dumps(metadata, indent=2))
+    (wf_dir / "workflow.json").write_text(request.workflow.model_dump_json(indent=2))
+
+    logger.info(f"Saved workflow '{request.name}' (id={workflow_id})")
+    return WorkflowMetadata(**metadata)
+
+
+@app.get("/api/workflows/{workflow_id}", response_model=WorkflowDefinition)
+async def load_workflow(workflow_id: str):
+    """Load a saved workflow definition."""
+    wf_dir = WORKFLOWS_DIR / workflow_id
+    workflow_path = wf_dir / "workflow.json"
+    if not workflow_path.exists():
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    data = json.loads(workflow_path.read_text())
+    return WorkflowDefinition(**data)
+
+
+@app.delete("/api/workflows/{workflow_id}")
+async def delete_workflow(workflow_id: str):
+    """Delete a saved workflow."""
+    wf_dir = WORKFLOWS_DIR / workflow_id
+    if not wf_dir.exists():
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    import shutil
+    shutil.rmtree(wf_dir)
+    logger.info(f"Deleted workflow {workflow_id}")
+    return {"message": "Workflow deleted"}
+
+
+@app.delete("/api/executions/{execution_id}")
+async def cancel_execution(execution_id: str):
+    """
+    Cancel a running workflow execution.
+    Sets status to 'cancelled' and marks remaining nodes as skipped.
+    """
+    logger.info(f"DELETE /api/executions/{execution_id} - Request received")
+
+    if execution_id not in executions:
+        logger.warning(f"Execution not found: {execution_id}")
+        raise HTTPException(status_code=404, detail="Execution not found")
+
+    execution = executions[execution_id]
+
+    if execution.status in ("completed", "failed", "cancelled"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot cancel execution with status: {execution.status}"
+        )
+
+    # Mark as cancelled
+    execution.status = "cancelled"
+    execution.completed_at = datetime.now().isoformat()
+
+    # Mark any processing nodes as cancelled
+    for node_id, node_status in execution.nodes.items():
+        if node_status.status == "processing":
+            node_status.status = "cancelled"
+            node_status.completed_at = datetime.now().isoformat()
+        elif node_status.status == "pending":
+            node_status.status = "skipped"
+
+    logger.info(f"Execution {execution_id} cancelled")
+    return {"message": f"Execution {execution_id} cancelled", "status": "cancelled"}
+
+
+# ==============================================================================
+# File Listing Endpoints
+# ==============================================================================
+
+class FileMetadata(BaseModel):
+    id: str
+    name: str
+    size: int
+    uploaded_at: str
+
+
+class FileListResponse(BaseModel):
+    files: List[FileMetadata]
+
+
+@app.get("/api/files", response_model=FileListResponse)
+async def list_files():
+    """List all uploaded files."""
+    if not UPLOADS_DIR.exists():
+        raise HTTPException(status_code=404, detail="Uploads directory not found")
+    
+    files = []
+    for file_path in UPLOADS_DIR.iterdir():
+        if not file_path.is_file():
+            continue
+        stat = file_path.stat()
+        files.append(FileMetadata(
+            id=file_path.name,
+            name=file_path.name,
+            size=stat.st_size,
+            uploaded_at=datetime.fromtimestamp(stat.st_mtime).isoformat()
+        ))
+    files.sort(key=lambda f: f.uploaded_at, reverse=True)
+    return FileListResponse(files=files)
 
 
 if __name__ == "__main__":

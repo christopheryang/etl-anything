@@ -103,8 +103,8 @@ export const InputNode: React.FC<NodeProps<InputNodeData>> = ({
   return (
     <div
       className={`relative px-4 py-3 rounded-lg border-2 ${
-        selected ? "border-teal-500" : "border-gray-300"
-      } bg-white shadow-lg min-w-[200px]`}
+ selected ? "border-teal-500" : "border-gray-300 dark:border-gray-600"
+ } bg-white dark:bg-gray-900 shadow-lg min-w-[200px]`}
     >
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
@@ -117,12 +117,12 @@ export const InputNode: React.FC<NodeProps<InputNodeData>> = ({
           {sourceType === "upload" && (
             <Upload className="w-4 h-4 text-teal-600" />
           )}
-          <span className="font-semibold text-sm">Input Node</span>
+          <span className="font-semibold text-sm dark:text-white">Input Node</span>
         </div>
         <div className="flex items-center gap-1">
           <button
             onClick={() => setShowConfig(!showConfig)}
-            className="text-gray-500 hover:text-gray-700"
+            className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
           >
             <Settings className="w-4 h-4" />
           </button>
@@ -138,13 +138,13 @@ export const InputNode: React.FC<NodeProps<InputNodeData>> = ({
 
       {showConfig && (
         <div
-          className="mt-2 p-2 bg-gray-50 rounded nodrag"
+          className="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded nodrag"
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
-          <label className="text-xs font-medium text-gray-700">
-            Source Type:
-          </label>
+<label className="text-xs font-medium text-gray-700 dark:text-gray-200">
+ Source Type:
+ </label>
           <select
             className="w-full mt-1 text-xs border rounded px-2 py-1 nodrag"
             value={sourceType}
@@ -159,9 +159,9 @@ export const InputNode: React.FC<NodeProps<InputNodeData>> = ({
           </select>
           {sourceType === "upload" && (
             <div className="mt-2">
-              <label className="text-xs font-medium text-gray-700 block mb-1">
-                Upload File:
-              </label>
+<label className="text-xs font-medium text-gray-700 dark:text-gray-200 block mb-1">
+ Upload File:
+ </label>
               <input
                 type="file"
                 onChange={handleFileUpload}
@@ -174,11 +174,11 @@ export const InputNode: React.FC<NodeProps<InputNodeData>> = ({
                 <p className="text-xs text-teal-600 mt-1">Uploading...</p>
               )}
 
-              <div className="mt-3 pt-3 border-t border-gray-200">
+              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-medium text-gray-700">
-                    Or select from uploads:
-                  </label>
+<label className="text-xs font-medium text-gray-700 dark:text-gray-200">
+ Or select from uploads:
+ </label>
                   <button
                     type="button"
                     onClick={(e) => {
@@ -231,7 +231,7 @@ export const InputNode: React.FC<NodeProps<InputNodeData>> = ({
         </div>
       )}
 
-      <div className="text-xs text-gray-600 mt-1">
+      <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">
         {selectedFile
           ? `📄 ${selectedFile}`
           : data.label || "Configure input source"}

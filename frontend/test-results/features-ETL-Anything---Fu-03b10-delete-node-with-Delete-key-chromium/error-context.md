@@ -1,0 +1,292 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: features.spec.ts >> ETL Anything - Full Feature Verification (F001-F021) >> F015 - Delete Selected Nodes >> should delete node with Delete key
+- Location: e2e/features.spec.ts:219:9
+
+# Error details
+
+```
+Test timeout of 30000ms exceeded.
+```
+
+```
+Error: locator.dragTo: Test timeout of 30000ms exceeded.
+Call log:
+  - waiting for locator('button:has-text("Input")').first()
+
+```
+
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - heading "ETL Anything" [level=1] [ref=e5]
+        - textbox [ref=e6]: Untitled Workflow
+      - generic [ref=e7]:
+        - generic [ref=e8]:
+          - button "Zoom out" [ref=e9]:
+            - img [ref=e10]
+          - generic "Click to edit zoom level" [ref=e13]: 100%
+          - button "Zoom in" [ref=e14]:
+            - img [ref=e15]
+          - button "Fit all nodes in view" [ref=e18]:
+            - img [ref=e19]
+        - button "Run Workflow" [ref=e24]:
+          - img [ref=e25]
+          - text: Run Workflow
+        - button "Save" [ref=e27]:
+          - img [ref=e28]
+          - text: Save
+        - button [ref=e32]:
+          - img [ref=e33]
+    - generic [ref=e34]:
+      - generic [ref=e35]:
+        - generic [ref=e37]:
+          - generic:
+            - img
+        - img [ref=e38]
+        - img "React Flow mini map" [ref=e41]
+        - link "React Flow attribution" [ref=e43] [cursor=pointer]:
+          - /url: https://reactflow.dev
+          - text: React Flow
+      - generic:
+        - heading "Node Library" [level=3]
+        - generic:
+          - generic [ref=e45]:
+            - img [ref=e46]
+            - generic [ref=e49]:
+              - generic [ref=e50]: Input Node
+              - generic [ref=e51]: Data sources & uploads
+          - generic [ref=e52]:
+            - img [ref=e53]
+            - generic [ref=e63]:
+              - generic [ref=e64]: Reasoning Node
+              - generic [ref=e65]: LLM processing
+          - generic [ref=e66]:
+            - img [ref=e67]
+            - generic [ref=e70]:
+              - generic [ref=e71]: Output Node
+              - generic [ref=e72]: Export & save data
+          - generic [ref=e73]:
+            - img [ref=e74]
+            - generic [ref=e78]:
+              - generic [ref=e79]: Rule Node
+              - generic [ref=e80]: Business logic
+  - alert [ref=e81]
+```
+
+# Test source
+
+```ts
+  122 |       await expect(themeToggle.first()).toBeVisible();
+  123 |     });
+  124 |   });
+  125 | 
+  126 |   // F009: Node Execution Logs Panel
+  127 |   test.describe("F009 - Node Execution Logs Panel", () => {
+  128 |     test("should have logs panel toggle or area", async ({ page }) => {
+  129 |       // Check for logs button or panel
+  130 |       const logsBtn = page.locator('button:has-text("Logs"), button:has-text("Execution"), button:has-text("Status")');
+  131 |       // May be in settings or a dedicated button
+  132 |       expect((await logsBtn.count()) >= 0).toBe(true); // Always passes, just checking UI exists
+  133 |     });
+  134 |   });
+  135 | 
+  136 |   // F010: Keyboard Shortcuts
+  137 |   test.describe("F010 - Keyboard Shortcuts", () => {
+  138 |     test("should respond to Ctrl+S save shortcut", async ({ page }) => {
+  139 |       // Add a node first
+  140 |       const sidebarItem = page.locator('button:has-text("Input")').first();
+  141 |       const canvas = page.locator(".react-flow");
+  142 |       await sidebarItem.dragTo(canvas, { targetPosition: { x: 100, y: 100 } });
+  143 |       // Press Ctrl+S
+  144 |       await page.keyboard.down("Control");
+  145 |       await page.keyboard.press("s");
+  146 |       await page.keyboard.up("Control");
+  147 |       // Should see save modal or toast
+  148 |       const saveModal = page.locator('text=/Save|save modal/i');
+  149 |       // Modal may or may not appear - just verify page didn't crash
+  150 |       await expect(page.locator(".react-flow")).toBeVisible();
+  151 |     });
+  152 |   });
+  153 | 
+  154 |   // F011: Node Tooltip on Hover
+  155 |   test.describe("F011 - Node Tooltip on Hover", () => {
+  156 |     test("should show tooltip on node hover", async ({ page }) => {
+  157 |       const sidebarItem = page.locator('button:has-text("Input")').first();
+  158 |       const canvas = page.locator(".react-flow");
+  159 |       await sidebarItem.dragTo(canvas, { targetPosition: { x: 100, y: 100 } });
+  160 |       const node = page.locator(".react-flow__node").first();
+  161 |       await node.hover();
+  162 |       // Tooltip may appear as a floating div
+  163 |       const tooltip = page.locator('[role="tooltip"], .tooltip, [class*="tooltip"]');
+  164 |       // Tooltip is optional - just verify node exists
+  165 |       await expect(node).toBeVisible();
+  166 |     });
+  167 |   });
+  168 | 
+  169 |   // F012: Orphaned Node Validation
+  170 |   test.describe("F012 - Orphaned Node Validation", () => {
+  171 |     test("should warn about orphaned nodes on save", async ({ page }) => {
+  172 |       // Add a node without connecting it
+  173 |       const sidebarItem = page.locator('button:has-text("Input")').first();
+  174 |       const canvas = page.locator(".react-flow");
+  175 |       await sidebarItem.dragTo(canvas, { targetPosition: { x: 100, y: 100 } });
+  176 |       // Try to save - should see warning
+  177 |       const saveBtn = page.locator('button:has-text("Save")');
+  178 |       if (await saveBtn.count() > 0) {
+  179 |         await saveBtn.click();
+  180 |         // May see warning modal or toast
+  181 |       }
+  182 |       // Verify page didn't crash
+  183 |       await expect(page.locator(".react-flow")).toBeVisible();
+  184 |     });
+  185 |   });
+  186 | 
+  187 |   // F013: Undo/Redo
+  188 |   test.describe("F013 - Undo/Redo", () => {
+  189 |     test("should have undo/redo buttons or keyboard shortcuts", async ({ page }) => {
+  190 |       // Look for undo/redo buttons
+  191 |       const undoBtn = page.locator('button:has svg[aria-label*="Undo"], button[title*="Undo"], button:has-text("Undo")');
+  192 |       const redoBtn = page.locator('button:has svg[aria-label*="Redo"], button[title*="Redo"], button:has-text("Redo")');
+  193 |       // May not have visible buttons - keyboard shortcuts should work
+  194 |       // Add node, press Ctrl+Z
+  195 |       const sidebarItem = page.locator('button:has-text("Input")').first();
+  196 |       const canvas = page.locator(".react-flow");
+  197 |       await sidebarItem.dragTo(canvas, { targetPosition: { x: 100, y: 100 } });
+  198 |       await page.keyboard.down("Control");
+  199 |       await page.keyboard.press("z");
+  200 |       await page.keyboard.up("Control");
+  201 |       // Verify page didn't crash
+  202 |       await expect(page.locator(".react-flow")).toBeVisible();
+  203 |     });
+  204 |   });
+  205 | 
+  206 |   // F014: New Workflow Button
+  207 |   test.describe("F014 - New Workflow Button", () => {
+  208 |     test("should have New button or menu item", async ({ page }) => {
+  209 |       const newBtn = page.locator('button:has-text("New"), button:has-text("Clear")');
+  210 |       // May be in a menu - check settings
+  211 |       const settingsBtn = page.locator('button:has svg', { hasText: "Menu" }).first();
+  212 |       const hasEither = (await newBtn.count()) > 0 || (await settingsBtn.count()) > 0;
+  213 |       expect(hasEither).toBe(true);
+  214 |     });
+  215 |   });
+  216 | 
+  217 |   // F015: Delete Selected Nodes
+  218 |   test.describe("F015 - Delete Selected Nodes", () => {
+  219 |     test("should delete node with Delete key", async ({ page }) => {
+  220 |       const sidebarItem = page.locator('button:has-text("Input")').first();
+  221 |       const canvas = page.locator(".react-flow");
+> 222 |       await sidebarItem.dragTo(canvas, { targetPosition: { x: 100, y: 100 } });
+      |                         ^ Error: locator.dragTo: Test timeout of 30000ms exceeded.
+  223 |       // Select the node (click it)
+  224 |       const node = page.locator(".react-flow__node").first();
+  225 |       await node.click();
+  226 |       // Press Delete
+  227 |       await page.keyboard.press("Delete");
+  228 |       // Node should be gone or page should still work
+  229 |       await expect(page.locator(".react-flow")).toBeVisible();
+  230 |     });
+  231 |   });
+  232 | 
+  233 |   // F016: MiniMap Toggle
+  234 |   test.describe("F016 - MiniMap Toggle", () => {
+  235 |     test("should toggle MiniMap on/off", async ({ page }) => {
+  236 |       // Open settings
+  237 |       const settingsBtn = page.locator('button:has svg', { hasText: "Menu" }).first();
+  238 |       await settingsBtn.click();
+  239 |       // Find MiniMap toggle
+  240 |       const miniMapToggle = page.locator('button:has-text("MiniMap"), button:has-text("Map")');
+  241 |       await expect(miniMapToggle.first()).toBeVisible();
+  242 |       // Toggle it
+  243 |       await miniMapToggle.first().click();
+  244 |       // MiniMap should appear or disappear
+  245 |       const miniMap = page.locator(".react-flow__minimap, .react-flow__minimap-wrapper");
+  246 |       // May or may not be visible depending on state
+  247 |     });
+  248 |   });
+  249 | 
+  250 |   // F017: Auto-Layout Button
+  251 |   test.describe("F017 - Auto-Layout Button", () => {
+  252 |     test("should have auto-layout button", async ({ page }) => {
+  253 |       const layoutBtn = page.locator('button:has-text("Layout"), button:has-text("Auto"), button:has-text("Arrange")');
+  254 |       // May be in settings or toolbar
+  255 |       const settingsBtn = page.locator('button:has svg', { hasText: "Menu" }).first();
+  256 |       const hasEither = (await layoutBtn.count()) > 0 || (await settingsBtn.count()) > 0;
+  257 |       expect(hasEither).toBe(true);
+  258 |     });
+  259 |   });
+  260 | 
+  261 |   // F018: Workflow Stats
+  262 |   test.describe("F018 - Workflow Stats in Header", () => {
+  263 |     test("should display node and edge counts", async ({ page }) => {
+  264 |       // Look for stats display
+  265 |       const stats = page.locator('[class*="stats"], [class*="count"], text=/\\d+ nodes?/i, text=/\\d+ edges?/i');
+  266 |       // Stats may not be visible - just verify header exists
+  267 |       const header = page.locator("h1, .header, [class*='header']");
+  268 |       await expect(header.first()).toBeVisible();
+  269 |     });
+  270 |   });
+  271 | 
+  272 |   // F019: Pre-Run Validation
+  273 |   test.describe("F019 - Pre-Run Validation", () => {
+  274 |     test("should validate before running", async ({ page }) => {
+  275 |       // Try to run without nodes
+  276 |       const runBtn = page.locator('button:has-text("Run"), button:has-text("Run Workflow")');
+  277 |       if (await runBtn.count() > 0) {
+  278 |         await runBtn.click();
+  279 |         // Should see error or validation message
+  280 |         // May appear as toast, modal, or status message
+  281 |       }
+  282 |       // Verify page didn't crash
+  283 |       await expect(page.locator(".react-flow")).toBeVisible();
+  284 |     });
+  285 |   });
+  286 | 
+  287 |   // F020: Help Modal
+  288 |   test.describe("F020 - Help Modal", () => {
+  289 |     test("should have help button and modal", async ({ page }) => {
+  290 |       const helpBtn = page.locator('button:has svg[aria-label*="Help"], button[title*="Help"], button:has-text("Help"), button:has svg:has-text("?")');
+  291 |       if (await helpBtn.count() > 0) {
+  292 |         await helpBtn.first().click();
+  293 |         const modal = page.locator('[role="dialog"], [class*="modal"], [class*="dialog"]');
+  294 |         await expect(modal.first()).toBeVisible();
+  295 |       } else {
+  296 |         // Help may be in settings menu
+  297 |         const settingsBtn = page.locator('button:has svg', { hasText: "Menu" }).first();
+  298 |         await settingsBtn.click();
+  299 |         // Just verify settings opened
+  300 |         await expect(page.locator('text=/Settings/i').or(page.locator('button:has svg'))).toBeVisible();
+  301 |       }
+  302 |     });
+  303 |   });
+  304 | 
+  305 |   // F021: Toast Notifications
+  306 |   test.describe("F021 - Toast Notifications", () => {
+  307 |     test("should show toasts instead of alerts", async ({ page }) => {
+  308 |       // Trigger an action that might show a toast
+  309 |       // Try to save without content
+  310 |       const saveBtn = page.locator('button:has-text("Save")');
+  311 |       if (await saveBtn.count() > 0) {
+  312 |         await saveBtn.click();
+  313 |         // Look for toast container
+  314 |         const toast = page.locator('[class*="toast"], [class*="notification"], [role="alert"]');
+  315 |         // Toast may or may not appear
+  316 |       }
+  317 |       // Verify page didn't crash
+  318 |       await expect(page.locator(".react-flow")).toBeVisible();
+  319 |     });
+  320 |   });
+  321 | });
+  322 | 
+```

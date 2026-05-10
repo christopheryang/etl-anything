@@ -74,6 +74,7 @@ export const NODE_CONFIGS: Record<string, NodeConfig> = {
       prompt: data.prompt || "",
       model: data.model || "claude-haiku-4-5",
       temperature: data.temperature ?? 0.7,
+      system_prompt: data.system_prompt || undefined,
     }),
   },
 
@@ -93,13 +94,16 @@ export const NODE_CONFIGS: Record<string, NodeConfig> = {
 
   rule: {
     frontendType: "rule",
-    backendType: null, // Not yet supported by backend
+    backendType: "rule",
     label: "Rule Node",
     description: "Business logic",
     icon: GitBranch,
     color: "#7c3aed",
-    showInSidebar: true, // Show in sidebar for UI demo (filtered from execution)
-    dataMapper: (data) => data, // Not sent to backend
+    showInSidebar: true,
+    dataMapper: (data) => ({
+      conditions: data.conditions || [],
+      logic: data.logic || "AND",
+    }),
   },
 };
 
