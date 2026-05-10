@@ -43,3 +43,5 @@ backend/uploads/*
 !backend/uploads/.gitkeep
 backend/outputs/*
 !backend/outputs/.gitkeep
+
+backend/workflows/*

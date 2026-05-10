@@ -1,59 +1,75 @@
-# Nashville AI Training
+# ETL Anything
 
-Workshop materials for the Nashville on-site (May 12–13, 2026). Builds an "ETL Anything" workflow tool: a Next.js canvas UI that drives a FastAPI workflow engine calling Claude through Octane's LLM proxy.
+A visual workflow tool for document ETL (Extract, Transform, Load). Drag-and-drop nodes on a canvas, connect them into pipelines, and execute workflows that read documents, call Claude AI for reasoning, and produce structured outputs.
 
-## Repo layout
+## Architecture
 
 ```
-.
-├── backend/    FastAPI workflow engine (Python)
-└── frontend/   Next.js workflow canvas (TypeScript)
+┌─────────────────────────────────────────────────────────────────┐
+│                        Frontend (Next.js)                       │
+│  ┌──────────────┐  ┌───────────────┐  ┌────────────────────┐  │
+│  │  Workflow    │  │   Node        │  │   Sidebar          │  │
+│  │  Canvas      │  │   Components   │  │   (node palette)   │  │
+│  │  (ReactFlow) │  │  Input/LLM/    │  │                    │  │
+│  │              │  │  Output/Rule   │  │                    │  │
+│  └──────┬───────┘  └───────────────┘  └────────────────────┘  │
+│         │                                                      │
+│         │  REST + JSON                                         │
+│         ▼                                                      │
+│  ┌──────────────┐  ┌──────────────┐  ┌────────────────────┐   │
+│  │  /api/       │  │  /api/       │  │  /api/             │   │
+│  │  workflows   │  │  executions  │  │  files             │   │
+│  └──────────────┘  └──────────────┘  └────────────────────┘   │
+└────────────────────────┬──────────────────────────────────────┘
+                         │ HTTP
+                         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     Backend (FastAPI)                           │
+│                                                                 │
+│  ┌──────────────┐   ┌───────────────┐   ┌─────────────────┐   │
+│  │  Workflow    │──▶│  Node         │──▶│  Results /       │   │
+│  │  Executor    │   │  Handlers     │   │  Output Files   │   │
+│  │  (recursive  │   │  input_node   │   │                 │   │
+│  │   DAG walk)  │   │  llm_node     │   │                 │   │
+│  └──────────────┘   │  output_node  │   └─────────────────┘   │
+│                    │  rule_node    │                         │
+│  ┌──────────────┐   └───────────────┘                         │
+│  │  Execution  │                                               │
+│  │  Registry   │───▶ Anthropic (via Octane LLM proxy)          │
+│  └──────────────┘                                               │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-## Prerequisites
+## Node Types
 
-- **Python** 3.10+ (tested on 3.12 and 3.13)
-- **Node.js** 20 LTS or 22 LTS (minimum 18.18)
-- An **Octane LLM proxy key** from https://tools.ai-dev.octane.co/portal
+| Frontend | Backend | Description |
+|----------|---------|-------------|
+| **Input** | `input` | Load data: PDF, TXT, MD, CSV, JSON files |
+| **Reasoning** | `llm` | Call Claude AI with prompt + model selection |
+| **Output** | `output` | Save result to file (JSON/TXT/CSV) |
+| **Rule** | `rule` | Conditional branching (AND/OR logic) |
 
-The full pre-trip checklist (Claude Code, Claude Desktop, Okta access, GitHub access, key generation) lives in Confluence — finish that first, then come back here.
+## Tech Stack
 
-## Setup
+- **Frontend:** Next.js 15, React 19, ReactFlow, Tailwind CSS v4, TypeScript
+- **Backend:** FastAPI, Python 3.10+, Pydantic, PyMuPDF
+- **AI:** Anthropic Claude via Octane LLM proxy
+- **Testing:** pytest (49 tests, all passing)
 
-```bash
-git clone https://github.com/OctaneLendingTest/nashville-ai-training.git
-cd nashville-ai-training
-```
+## Quick Start
 
-### Backend (terminal 1)
+### 1. Backend
 
 ```bash
 cd backend
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env
-# edit .env and set OCTANE_API_KEY to your Octane key
+cp .env.example .env           # set OCTANE_API_KEY
 uvicorn main:app --reload --port 8000
 ```
 
-> **Note:** `.env` overrides your shell exports. If you copy the example, fill in `OCTANE_API_KEY` — an empty value will mask your shell value. To rely on shell exports alone, skip the `cp` step.
-
-Verify the server is up:
-
-```bash
-curl http://localhost:8000/
-# {"service":"ETL Anything API","status":"running","version":"1.0.0"}
-```
-
-Smoke-test the LLM proxy connection. Run this from the `backend/` directory (not from inside `scripts/`) so the script can find `.env`:
-
-```bash
-python scripts/test_litellm.py
-# should print a ping reply and token usage
-```
-
-### Frontend (terminal 2)
+### 2. Frontend
 
 ```bash
 cd frontend
@@ -61,21 +77,92 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000.
+Open **http://localhost:3000**
 
-The frontend uses sensible defaults (`http://localhost:8000` for the backend, `../backend/uploads` for the uploads directory). Copy `.env.local.example` to `.env.local` only if you need to override them.
+### 3. Run Tests
 
-### End-to-end check
+```bash
+cd backend && source venv/bin/activate && python -m pytest tests/ -v
+```
 
-In the UI, upload one of the sample PDFs from `backend/docs/`, build a simple **Input → LLM → Output** workflow, and run it. The output file should be downloadable from the UI.
+---
 
-## Workshop branches
+## Repository Layout
 
-- `main` — starting state (challenge 0)
-- `challenge-1`, `challenge-2`, ... — each step in the workshop progression
+```
+.
+├── docs/                   ← All documentation (READ THIS FIRST)
+│   ├── README.md            ← Documentation index
+│   ├── AGENTS.md            ← MUST READ for AI agents working in this repo
+│   ├── ARCHITECTURE.md      ← System design & data flows
+│   ├── REQUIREMENTS.md      ← Consolidated requirements (quick ref)
+│   ├── USER_GUIDE.md        ← End-user walkthrough
+│   ├── DEPLOYMENT & TESTING.md ← Dev setup, testing, adding nodes
+│   ├── references/
+│   │   ├── API_REFERENCE.md     ← REST endpoint specs
+│   │   └── FRONTEND_REFERENCE.md ← Component inventory
+│   ├── USER_GUIDE.md
+│
+├── backend/
+│   ├── main.py            ← FastAPI entry point + all routes
+│   ├── node_handlers.py   ← Node execution logic
+│   ├── requirements.txt
+│   ├── uploads/           ← Uploaded files
+│   ├── outputs/            ← Generated output files
+│   ├── workflows/          ← Saved workflow JSON files
+│   └── tests/
+│       ├── test_api.py
+│       ├── test_workflow.py
+│       └── test_node_handlers.py
+│
+└── frontend/
+    ├── app/
+    │   ├── layout.tsx     ← Root layout (ThemeProvider)
+    │   ├── page.tsx       ← Main canvas page
+    │   ├── components/
+    │   │   └── workflow/
+    │   │       ├── WorkflowCanvas.tsx   ← Main canvas component
+    │   │       ├── Sidebar.tsx          ← Node palette
+    │   │       ├── nodeConfig.ts        ← Node type definitions
+    │   │       └── nodes/
+    │   │           ├── InputNode.tsx
+    │   │           ├── ReasoningNode.tsx
+    │   │           ├── OutputNode.tsx
+    │   │           └── RuleNode.tsx
+    │   └── api/           ← Next.js API routes (proxies to backend)
+    └── package.json
+```
 
-Check out the relevant branch at the start of each session.
+---
 
-## Help
+## Features
 
-Post in **#nashville-ai-jam-2026** on Slack and tag **Ruslan Fridman** or **Sean Howard**.
+- [x] Visual DAG editor with drag-and-drop nodes
+- [x] PDF/text/markdown/CSV/JSON file upload
+- [x] Claude AI integration with model selection (Haiku/Sonnet/Opus)
+- [x] Rule node with AND/OR conditional branching
+- [x] Workflow save/load from database
+- [x] Workflow export/import as JSON files
+- [x] Execution cancellation
+- [x] Progress tracking with polling
+- [x] Dark mode (system/light/dark) with theme toggle
+- [x] Node execution logs panel
+- [x] Keyboard shortcuts (Ctrl+S/O/N/Z/Y, Delete/Backspace)
+- [x] Node tooltip on hover with config summary
+- [x] Orphaned node validation before save
+- [x] Undo/redo for canvas (full history)
+- [x] MiniMap toggle and auto-layout (dagre)
+- [x] Pre-run validation (input files, I/O node check)
+- [x] 49 automated tests
+
+## Quick Links
+
+- **New to the project?** → [AGENTS.md](./AGENTS.md) (MUST READ)
+- **How to use** → [docs/USER_GUIDE.md](./docs/USER_GUIDE.md)
+- **How to develop** → [docs/DEPLOYMENT & TESTING.md](./docs/DEPLOYMENT%20&%20TESTING.md)
+- **All features** → [docs/features/](./docs/features/)
+- **Quick ref** → [docs/REQUIREMENTS.md](./docs/REQUIREMENTS.md)
+
+## Known Issues & TODO
+
+See [docs/features/](./docs/features/) for all features, implementation status, and pending items.

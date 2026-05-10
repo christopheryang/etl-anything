@@ -22,8 +22,8 @@ export const OutputNode: React.FC<NodeProps<OutputNodeData>> = ({
   return (
     <div
       className={`relative px-4 py-3 rounded-lg border-2 ${
-        selected ? "border-teal-500" : "border-gray-300"
-      } bg-white shadow-lg min-w-[200px]`}
+ selected ? "border-teal-500" : "border-gray-300 dark:border-gray-600"
+ } bg-white dark:bg-gray-900 shadow-lg min-w-[200px]`}
     >
       <Handle
         type="target"
@@ -34,12 +34,12 @@ export const OutputNode: React.FC<NodeProps<OutputNodeData>> = ({
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <Download className="w-4 h-4 text-teal-600" />
-          <span className="font-semibold text-sm">Output Node</span>
+          <span className="font-semibold text-sm dark:text-white">Output Node</span>
         </div>
         <div className="flex items-center gap-1">
           <button
             onClick={() => setShowConfig(!showConfig)}
-            className="text-gray-500 hover:text-gray-700"
+            className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
           >
             <Settings className="w-4 h-4" />
           </button>
@@ -55,13 +55,13 @@ export const OutputNode: React.FC<NodeProps<OutputNodeData>> = ({
 
       {showConfig && (
         <div
-          className="mt-2 p-2 bg-gray-50 rounded nodrag"
+          className="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded nodrag"
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
-          <label className="text-xs font-medium text-gray-700">
-            Output Format:
-          </label>
+<label className="text-xs font-medium text-gray-700 dark:text-gray-200">
+ Output Format:
+ </label>
           <select
             className="w-full mt-1 text-xs border rounded px-2 py-1 nodrag"
             value={data.format}
@@ -79,9 +79,9 @@ export const OutputNode: React.FC<NodeProps<OutputNodeData>> = ({
             <option value="md">Markdown</option>
           </select>
 
-          <label className="text-xs font-medium text-gray-700 mt-2 block">
-            Output Filename:
-          </label>
+<label className="text-xs font-medium text-gray-700 dark:text-gray-200 mt-2 block">
+ Output Filename:
+ </label>
           <input
             type="text"
             className="w-full mt-1 text-xs border rounded px-2 py-1 nodrag"
@@ -95,7 +95,7 @@ export const OutputNode: React.FC<NodeProps<OutputNodeData>> = ({
         </div>
       )}
 
-      <div className="text-xs text-gray-600 mt-1">
+      <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">
         {data.fileName
           ? `📝 ${data.fileName}`
           : data.label || "Configure output"}

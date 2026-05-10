@@ -77,8 +77,8 @@ export const RuleNode: React.FC<NodeProps<RuleNodeData>> = ({
   return (
     <div
       className={`relative px-4 py-3 rounded-lg border-2 ${
-        selected ? "border-teal-500" : "border-gray-300"
-      } bg-white shadow-lg min-w-[300px]`}
+ selected ? "border-teal-500" : "border-gray-300 dark:border-gray-600"
+ } bg-white dark:bg-gray-900 shadow-lg min-w-[300px]`}
     >
       <Handle
         type="target"
@@ -89,12 +89,12 @@ export const RuleNode: React.FC<NodeProps<RuleNodeData>> = ({
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <GitBranch className="w-4 h-4 text-teal-600" />
-          <span className="font-semibold text-sm">Rule Node</span>
+          <span className="font-semibold text-sm dark:text-white">Rule Node</span>
         </div>
         <div className="flex items-center gap-1">
           <button
             onClick={() => setShowConfig(!showConfig)}
-            className="text-gray-500 hover:text-gray-700"
+            className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
           >
             <Settings className="w-4 h-4" />
           </button>
@@ -110,13 +110,13 @@ export const RuleNode: React.FC<NodeProps<RuleNodeData>> = ({
 
       {showConfig && (
         <div
-          className="mt-2 p-3 bg-gray-50 rounded nodrag"
+          className="mt-2 p-3 bg-gray-50 dark:bg-gray-800 rounded nodrag"
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="mb-2">
-            <label className="text-xs font-semibold text-gray-700">
-              Conditions
+<label className="text-xs font-semibold text-gray-700 dark:text-gray-200">
+ Conditions
             </label>
           </div>
 
@@ -134,7 +134,7 @@ export const RuleNode: React.FC<NodeProps<RuleNodeData>> = ({
                   onMouseDown={(e) => e.stopPropagation()}
                 />
                 <select
-                  className="flex-1 text-xs border rounded px-2 py-1.5 nodrag bg-white"
+                  className="flex-1 text-xs border rounded px-2 py-1.5 nodrag bg-white dark:bg-gray-900"
                   value={condition.operator}
                   onChange={(e) =>
                     handleConditionChange(index, "operator", e.target.value)
@@ -170,7 +170,7 @@ export const RuleNode: React.FC<NodeProps<RuleNodeData>> = ({
               {index < conditions.length - 1 && (
                 <div className="flex items-center mb-2">
                   <select
-                    className="text-xs border rounded px-2 py-1 nodrag bg-white"
+                    className="text-xs border rounded px-2 py-1 nodrag bg-white dark:bg-gray-900"
                     value={logic}
                     onChange={(e) =>
                       updateLogic(e.target.value as "AND" | "OR")
@@ -187,14 +187,14 @@ export const RuleNode: React.FC<NodeProps<RuleNodeData>> = ({
 
           <button
             onClick={addCondition}
-            className="w-full mt-2 text-xs border border-dashed border-gray-300 rounded px-2 py-1.5 text-gray-600 hover:border-teal-500 hover:text-teal-600 hover:bg-white transition-colors"
+            className="w-full mt-2 text-xs border border-dashed border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 text-gray-600 dark:text-gray-300 hover:border-teal-500 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-white dark:hover:bg-gray-700 transition-colors"
             onMouseDown={(e) => e.stopPropagation()}
           >
             Add condition
           </button>
 
-          <div className="mt-3 pt-3 border-t border-gray-200">
-            <div className="text-xs font-medium text-gray-700 mb-2">
+          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <div className="text-xs font-medium text-gray-700 dark:text-gray-200 mb-2">
               Outputs
             </div>
             <div className="flex gap-2">
@@ -213,7 +213,7 @@ export const RuleNode: React.FC<NodeProps<RuleNodeData>> = ({
         </div>
       )}
 
-      <div className="text-xs text-gray-600 mt-1">{getRuleDisplay()}</div>
+      <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">{getRuleDisplay()}</div>
 
       {/* True Output Handle */}
       <Handle

@@ -12,8 +12,9 @@ export interface InputNodeData extends NodeData {
 
 export interface ReasoningNodeData extends NodeData {
   prompt?: string;
-  model?: "claude-haiku-4-5";
+  model?: "claude-haiku-4-5" | "claude-sonnet-4-7" | "claude-opus-4-7";
   temperature?: number;
+  system_prompt?: string;
 }
 
 export interface RuleCondition {
