@@ -48,6 +48,34 @@ class TestParseWorkflowGraph:
         assert incoming_edges["llm1"] == [("in1", None)]
         assert incoming_edges["out1"] == [("llm1", None)]
 
+    def test_rule_node_edges_with_source_handle(self):
+        """Test that edges from a rule node store sourceHandle for branching."""
+        workflow = WorkflowDefinition(
+            nodes=[
+                Node(id="in1", type="input", position={"x": 0, "y": 0},
+                     data=InputNodeData(fileId="test.csv", fileName="test.csv")),
+                Node(id="rule1", type="rule", position={"x": 200, "y": 0},
+                     data=RuleNodeData(
+                         conditions=[RuleCondition(variable="status", operator="==", value="active")],
+                         logic="AND"
+                     )),
+                Node(id="out_true", type="output", position={"x": 400, "y": -50},
+                     data=OutputNodeData(fileName="result_true.csv", format="csv")),
+                Node(id="out_false", type="output", position={"x": 400, "y": 50},
+                     data=OutputNodeData(fileName="result_false.csv", format="csv")),
+            ],
+            edges=[
+                Edge(id="e1", source="in1", target="rule1"),
+                Edge(id="e2", source="rule1", target="out_true", sourceHandle="true"),
+                Edge(id="e3", source="rule1", target="out_false", sourceHandle="false"),
+            ]
+        )
+        node_lookup, adjacency_list, incoming_edges, start_nodes = parse_workflow_graph(workflow)
+
+        assert incoming_edges["rule1"] == [("in1", None)]
+        assert incoming_edges["out_true"] == [("rule1", "true")]
+        assert incoming_edges["out_false"] == [("rule1", "false")]
+
     def test_empty_workflow_raises(self):
         """Test that a workflow with no nodes raises ValueError."""
         workflow = WorkflowDefinition(nodes=[], edges=[])

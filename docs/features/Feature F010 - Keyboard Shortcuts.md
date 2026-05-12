@@ -2,16 +2,14 @@
 
 **Status:** Pending (not implemented)
 
-
-> **Note:** This feature was documented but never implemented in the UI.**Feature ID:** F010
-
 ---
 
 ## Requirements
 
-- Full keyboard shortcut system via global `keydown` listener
-- Shortcuts: Ctrl+S (Save), Ctrl+O (Load), Ctrl+N (New), Ctrl+Z (Undo), Ctrl+Shift+Z/Ctrl+Y (Redo), Delete/Backspace (Delete selected)
-- Shortcuts skip when user is typing in an input/textarea
+- **FR1:** Full keyboard shortcut system via global `keydown` listener
+- **FR2:** Shortcuts: Ctrl+S (Save), Ctrl+O (Load), Ctrl+N (New), Ctrl+Z (Undo), Ctrl+Shift+Z/Ctrl+Y (Redo), Delete/Backspace (Delete selected)
+- **FR3:** Shortcuts skip when user is typing in an input/textarea
+- **NFR1:** No breaking changes to existing functionality
 
 ---
 
@@ -23,7 +21,7 @@
 
 ---
 
-## Implementation Summary
+## Implementation
 
 **Files changed:**
 - `frontend/app/components/workflow/WorkflowCanvas.tsx`
@@ -44,7 +42,30 @@
 
 ---
 
+## Acceptance Criteria
+
+- [ ] **FR1:** Full keyboard shortcut system via global `keydown` listener
+- [ ] **FR2:** Shortcuts: Ctrl+S (Save), Ctrl+O (Load), Ctrl+N (New), Ctrl+Z (Undo), Ctrl+Shift+Z/Ctrl+Y (Redo), Delete/Backspace (Delete selected)
+- [ ] **FR3:** Shortcuts skip when user is typing in an input/textarea
+- [ ] **NFR1:** No breaking changes to existing functionality
+
+---
+
+## Test Cases
+
+- Verify feature works per requirements
+- Run `cd backend && source venv/bin/activate && python -m pytest tests/ -q`
+- Run `cd frontend && npx -p typescript tsc --noEmit`
+
+---
+
 ## Caveats
 
 - No shortcut for "Run" (Enter key was considered but conflicts with form submission)
 - The Delete handler does not ask for confirmation (undo via Ctrl+Z available)
+
+---
+
+## Files Modified
+
+- `frontend/app/components/workflow/WorkflowCanvas.tsx`

@@ -2,16 +2,14 @@
 
 **Status:** Pending (not implemented)
 
-
-> **Note:** This feature was documented but never implemented in the UI.**Feature ID:** F012
-
 ---
 
 ## Requirements
 
-- When saving a workflow, warn if any nodes have no incoming or outgoing edges
-- List the orphaned nodes by type and ID
-- User can cancel save or confirm anyway
+- **FR1:** When saving a workflow, warn if any nodes have no incoming or outgoing edges
+- **FR2:** List the orphaned nodes by type and ID
+- **FR3:** User can cancel save or confirm anyway
+- **NFR1:** No breaking changes to existing functionality
 
 ---
 
@@ -23,7 +21,7 @@
 
 ---
 
-## Implementation Summary
+## Implementation
 
 **Files changed:**
 - `frontend/app/components/workflow/WorkflowCanvas.tsx`
@@ -41,7 +39,30 @@ if (orphaned.length > 0) {
 
 ---
 
+## Acceptance Criteria
+
+- [ ] **FR1:** When saving a workflow, warn if any nodes have no incoming or outgoing edges
+- [ ] **FR2:** List the orphaned nodes by type and ID
+- [ ] **FR3:** User can cancel save or confirm anyway
+- [ ] **NFR1:** No breaking changes to existing functionality
+
+---
+
+## Test Cases
+
+- Verify feature works per requirements
+- Run `cd backend && source venv/bin/activate && python -m pytest tests/ -q`
+- Run `cd frontend && npx -p typescript tsc --noEmit`
+
+---
+
 ## Caveats
 
 - A node with only incoming OR only outgoing edges is not orphaned — it might be a valid source-only or sink-only node
 - The check uses node `id` which is ReactFlow-generated (e.g., "in1", "llm1") — user-friendly names would be better
+
+---
+
+## Files Modified
+
+- `frontend/app/components/workflow/WorkflowCanvas.tsx`

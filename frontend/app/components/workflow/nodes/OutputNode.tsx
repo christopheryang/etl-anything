@@ -70,8 +70,8 @@ export const OutputNode: React.FC<NodeProps<OutputNodeData>> = ({
               className="w-full mt-1 text-xs border rounded px-2 py-1 nodrag"
               value={format}
               onChange={(e) => {
-                const newFormat = e.target.value as OutputNodeData["format"];
-                setFormat(newFormat);
+ const newFormat = (e.target.value || "csv") as "txt" | "json" | "md" | "csv";
+ setFormat(newFormat);
                 data.format = newFormat;
                 // Auto-update extension when format changes
                 const baseName =

@@ -1,15 +1,15 @@
 # Feature F009 — Node Execution Logs Panel
 
 **Status:** Pending (not implemented)
-**Feature ID:** F009
 
 ---
 
 ## Requirements
 
-- Toggleable floating panel (bottom-right) shows node-by-node execution status
-- Color-coded entries: green for success, red for failed, blue for in-progress
-- Entries accumulate as polling delivers status updates
+- **FR1:** Toggleable floating panel (bottom-right) shows node-by-node execution status
+- **FR2:** Color-coded entries: green for success, red for failed, blue for in-progress
+- **FR3:** Entries accumulate as polling delivers status updates
+- **NFR1:** No breaking changes to existing functionality
 
 ---
 
@@ -21,7 +21,7 @@
 
 ---
 
-## Implementation Summary
+## Implementation
 
 **NOT YET IMPLEMENTED**
 
@@ -33,7 +33,28 @@ Original plan:
 
 ---
 
+## Acceptance Criteria
+
+- [ ] **FR1:** Toggleable floating panel (bottom-right) shows node-by-node execution status
+- [ ] **FR2:** Color-coded entries: green for success, red for failed, blue for in-progress
+- [ ] **FR3:** Entries accumulate as polling delivers status updates
+- [ ] **NFR1:** No breaking changes to existing functionality
+
+---
+
+## Test Cases
+
+- Verify feature works per requirements
+- Run `cd backend && source venv/bin/activate && python -m pytest tests/ -q`
+- Run `cd frontend && npx -p typescript tsc --noEmit`
+
+---
+
 ## Caveats
 
 - NOT IMPLEMENTED — this is a documentation placeholder
 - Feature was described but never coded
+
+---
+
+## Files Modified

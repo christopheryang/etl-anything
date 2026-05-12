@@ -1,17 +1,15 @@
-# Feature F014 — New Workflow Button (Clear Canvas)
+# Feature F014 — New Workflow Button
 
 **Status:** Pending (not implemented)
-
-
-> **Note:** This feature was documented but never implemented in the UI.**Feature ID:** F014
 
 ---
 
 ## Requirements
 
-- "New" button in toolbar clears the canvas with confirmation if there are nodes
-- Resets all state: nodes, edges, workflow name, workflow ID, execution state
-- Keyboard shortcut: Ctrl+N
+- **FR1:** "New" button in toolbar clears the canvas with confirmation if there are nodes
+- **FR2:** Resets all state: nodes, edges, workflow name, workflow ID, execution state
+- **FR3:** Keyboard shortcut: Ctrl+N
+- **NFR1:** No breaking changes to existing functionality
 
 ---
 
@@ -23,7 +21,7 @@
 
 ---
 
-## Implementation Summary
+## Implementation
 
 **Files changed:**
 - `frontend/app/components/workflow/WorkflowCanvas.tsx`
@@ -38,7 +36,30 @@
 
 ---
 
+## Acceptance Criteria
+
+- [ ] **FR1:** "New" button in toolbar clears the canvas with confirmation if there are nodes
+- [ ] **FR2:** Resets all state: nodes, edges, workflow name, workflow ID, execution state
+- [ ] **FR3:** Keyboard shortcut: Ctrl+N
+- [ ] **NFR1:** No breaking changes to existing functionality
+
+---
+
+## Test Cases
+
+- Verify feature works per requirements
+- Run `cd backend && source venv/bin/activate && python -m pytest tests/ -q`
+- Run `cd frontend && npx -p typescript tsc --noEmit`
+
+---
+
 ## Caveats
 
 - `clearWorkflow` does NOT call ReactFlow's `undo` — it directly calls `setNodes([])`, so the clear itself is not undoable
 - Confirmation dialog is browser native — no custom modal
+
+---
+
+## Files Modified
+
+- `frontend/app/components/workflow/WorkflowCanvas.tsx`

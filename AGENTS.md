@@ -121,24 +121,31 @@ docs/
   features/              ← One file per feature (F001–F021)
 
 backend/
-  main.py                ← FastAPI entry point + routes
-  node_handlers.py       ← Node execution logic
-  tests/                 ← pytest tests (49 passing)
+ main.py ← FastAPI entry point + routes
+ node_handlers.py ← Node execution logic
+ prompt_builder.py ← System prompt construction for workflow generation (F027)
+ tests/ ← pytest tests (49 passing)
 
 frontend/
   app/
     layout.tsx           ← Root layout (ThemeProvider)
     page.tsx             ← Main page
     components/
-      workflow/
-        WorkflowCanvas.tsx  ← Main canvas (all state lives here)
-        Sidebar.tsx        ← Node palette
-        nodeConfig.ts      ← Node type configs
-        nodes/
-          InputNode.tsx
-          ReasoningNode.tsx
-          OutputNode.tsx
-          RuleNode.tsx
+ workflow/
+ WorkflowCanvas.tsx ← Main canvas (all state lives here)
+ LeftSidebar.tsx ← Icon rail: Save, Run, AI, History, Templates, Zoom, Settings
+ ChatPanel.tsx ← AI conversation with model selector
+├── NodeLibrary.tsx ← Collapsible drag-and-drop node palette
+├── SaveWorkflowModal.tsx ← Save dialog (F028)
+├── WorkflowBrowser.tsx ← Browse/load saved workflows (F028)
+ PromptPanel.tsx ← (Legacy, replaced by ChatPanel)
+ Sidebar.tsx ← (Legacy, replaced by NodeLibrary)
+ nodeConfig.ts ← Node type configs
+ nodes/
+ InputNode.tsx
+ ReasoningNode.tsx
+ OutputNode.tsx
+ RuleNode.tsx
       types/
         workflow.ts         ← TypeScript interfaces
 ```

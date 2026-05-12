@@ -42,6 +42,7 @@ The central component. Owns ALL ReactFlow state and workflow metadata. No props 
 | `reactFlow` | from `useReactFlow()` | For undo/redo/fitView |
 | `workflowName` | `string` | Current workflow name |
 | `workflowId` | `string \| null` | Saved workflow ID (null = unsaved) |
+| `hasUnsavedChanges` | `boolean` | True when canvas has unsaved edits (amber dot indicator) |
 | `workflowDescription` | `string` | Saved workflow description |
 | `workflowStatus` | `string` | `"idle" \| "pending" \| "processing" \| "completed" \| "failed"` |
 | `isExecuting` | `boolean` | True while workflow running |
@@ -66,7 +67,7 @@ The central component. Owns ALL ReactFlow state and workflow metadata. No props 
 | `onDragOver` / `onDrop` | Drag from sidebar to canvas |
 | `runWorkflow()` | Validates, submits to `/api/executions`, starts polling |
 | `cancelExecution()` | DELETE to `/api/executions/{id}`, stops polling |
-| `saveWorkflow()` | POST to `/api/workflows`, handles orphaned node warning |
+| `saveWorkflow()` | POST (new) or PUT (update) to `/api/workflows`, captures `workflowId` from response |
 | `loadWorkflow(id)` | GET `/api/workflows/{id}`, sets nodes/edges/metadata |
 | `fetchWorkflows()` | GET `/api/workflows` for load modal |
 | `exportWorkflow()` | Downloads canvas as JSON file |

@@ -2,16 +2,14 @@
 
 **Status:** Pending (not implemented)
 
-
-> **Note:** This feature was documented but never implemented in the UI.**Feature ID:** F011
-
 ---
 
 ## Requirements
 
-- Floating tooltip appears on node hover
-- Shows node type, key configuration values (model, file name, conditions count, etc.)
-- Tooltip follows cursor and avoids getting clipped at viewport edges
+- **FR1:** Floating tooltip appears on node hover
+- **FR2:** Shows node type, key configuration values (model, file name, conditions count, etc.)
+- **FR3:** Tooltip follows cursor and avoids getting clipped at viewport edges
+- **NFR1:** No breaking changes to existing functionality
 
 ---
 
@@ -23,7 +21,7 @@
 
 ---
 
-## Implementation Summary
+## Implementation
 
 **Files changed:**
 - `frontend/app/components/workflow/WorkflowCanvas.tsx`
@@ -38,8 +36,31 @@
 
 ---
 
+## Acceptance Criteria
+
+- [ ] **FR1:** Floating tooltip appears on node hover
+- [ ] **FR2:** Shows node type, key configuration values (model, file name, conditions count, etc.)
+- [ ] **FR3:** Tooltip follows cursor and avoids getting clipped at viewport edges
+- [ ] **NFR1:** No breaking changes to existing functionality
+
+---
+
+## Test Cases
+
+- Verify feature works per requirements
+- Run `cd backend && source venv/bin/activate && python -m pytest tests/ -q`
+- Run `cd frontend && npx -p typescript tsc --noEmit`
+
+---
+
 ## Caveats
 
 - If node has many properties, the tooltip may truncate
 - No keyboard-accessible alternative (tooltip requires hover)
 - Position can overflow viewport on small screens — no boundary clamping
+
+---
+
+## Files Modified
+
+- `frontend/app/components/workflow/WorkflowCanvas.tsx`

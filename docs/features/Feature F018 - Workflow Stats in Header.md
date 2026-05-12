@@ -2,15 +2,13 @@
 
 **Status:** Pending (not implemented)
 
-
-> **Note:** This feature was documented but never implemented in the UI.**Feature ID:** F018
-
 ---
 
 ## Requirements
 
-- Live node count and edge count displayed in the header bar
-- Updates as nodes are added/removed/connected
+- **FR1:** Live node count and edge count displayed in the header bar
+- **FR2:** Updates as nodes are added/removed/connected
+- **NFR1:** No breaking changes to existing functionality
 
 ---
 
@@ -22,7 +20,7 @@
 
 ---
 
-## Implementation Summary
+## Implementation
 
 **Files changed:**
 - `frontend/app/components/workflow/WorkflowCanvas.tsx`
@@ -37,7 +35,29 @@ Separated from workflow name by `borderLeft` + `pl-4`. Font: medium weight, gray
 
 ---
 
+## Acceptance Criteria
+
+- [ ] **FR1:** Live node count and edge count displayed in the header bar
+- [ ] **FR2:** Updates as nodes are added/removed/connected
+- [ ] **NFR1:** No breaking changes to existing functionality
+
+---
+
+## Test Cases
+
+- Verify feature works per requirements
+- Run `cd backend && source venv/bin/activate && python -m pytest tests/ -q`
+- Run `cd frontend && npx -p typescript tsc --noEmit`
+
+---
+
 ## Caveats
 
 - No breakdown by node type (would require counting each type)
 - Count is not clickable (no filtering)
+
+---
+
+## Files Modified
+
+- `frontend/app/components/workflow/WorkflowCanvas.tsx`

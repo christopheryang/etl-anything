@@ -35,7 +35,13 @@ export interface RuleNodeData extends NodeData {
 }
 
 export interface OutputNodeData extends NodeData {
-  fileName?: string;
-  format?: "txt" | "json" | "md" | "csv";
+ fileName?: string;
+ format?: "txt" | "json" | "md" | "csv";
+}
+
+export interface PromptMessage {
+ role: "user" | "assistant";
+ content: string;
+ timestamp: string;
 }
 

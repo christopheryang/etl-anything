@@ -166,14 +166,10 @@ Line2"
 
 ## Files Modified
 
-**Backend:**
 - `node_handlers.py` - Added CSV format handler in `handle_output_node()`
 
-**Frontend:**
 - `workflow/types/workflow.ts` - Added "csv" to format union type
 - `workflow/nodes/OutputNode.tsx` - Added CSV option to dropdown
 
-**Documentation:**
 - `docs/features/Feature F026 - CSV Output Format.md` (this file)
 - `docs/REQUIREMENTS.md` - Updated feature table
-- `CHANGELOG.md` - Added to v0.5 release notes
