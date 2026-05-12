@@ -2,15 +2,13 @@
 
 **Status:** Partial
 
-
-> **Note:** Partially implemented. See implementation details below.**Feature ID:** F019
-
 ---
 
 ## Requirements
 
-- Before a workflow executes, validate: canvas has nodes, canvas has edges, at least one Input node exists, all Input nodes have a file selected, at least one Output node exists
-- Show a specific, actionable error message for each failure
+- **FR1:** Before a workflow executes, validate: canvas has nodes, canvas has edges, at least one Input node exists, all Input nodes have a file selected, at least one Output node exists
+- **FR2:** Show a specific, actionable error message for each failure
+- **NFR1:** No breaking changes to existing functionality
 
 ---
 
@@ -22,7 +20,7 @@
 
 ---
 
-## Implementation Summary
+## Implementation
 
 **Files changed:**
 - `frontend/app/components/workflow/WorkflowCanvas.tsx`
@@ -36,7 +34,29 @@
 
 ---
 
+## Acceptance Criteria
+
+- [ ] **FR1:** Before a workflow executes, validate: canvas has nodes, canvas has edges, at least one Input node exists, all Input nodes have a file selected, at least one Output node exists
+- [ ] **FR2:** Show a specific, actionable error message for each failure
+- [ ] **NFR1:** No breaking changes to existing functionality
+
+---
+
+## Test Cases
+
+- Verify feature works per requirements
+- Run `cd backend && source venv/bin/activate && python -m pytest tests/ -q`
+- Run `cd frontend && npx -p typescript tsc --noEmit`
+
+---
+
 ## Caveats
 
 - Validation is synchronous and client-side only — server-side validation may still catch edge cases
 - Error messages use `alert()` — blocking and ugly (see F21: Toast notifications)
+
+---
+
+## Files Modified
+
+- `frontend/app/components/workflow/WorkflowCanvas.tsx`

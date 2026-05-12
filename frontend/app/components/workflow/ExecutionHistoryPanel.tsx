@@ -60,10 +60,10 @@ export default function ExecutionHistoryPanel({ isOpen, onClose }: ExecutionHist
         setExecutions(data.executions);
         
         // Extract unique workflow names for filter dropdown
-        const uniqueWorkflows = Array.from(
-          new Set(data.executions.map((e: ExecutionRecord) => e.workflowName))
-        );
-        setWorkflowList(uniqueWorkflows);
+ const uniqueWorkflows: string[] = Array.from(
+ new Set(data.executions.map((e: ExecutionRecord) => e.workflowName))
+ );
+ setWorkflowList(uniqueWorkflows);
       }
     } catch (error) {
       console.error('Failed to fetch executions:', error);
@@ -205,10 +205,25 @@ export default function ExecutionHistoryPanel({ isOpen, onClose }: ExecutionHist
                     <div className="flex items-start justify-between">
                       <div className="flex items-center space-x-2 flex-1">
                         {getStatusIcon(execution.status)}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                            {execution.workflowName}
-                          </p>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                    {execution.workflowName}
+                  </p>
+                  <span
+                    className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none ${
+                      execution.status === "completed"
+                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        : execution.status === "failed"
+                        ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                        : execution.status === "cancelled"
+                        ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                        : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                    }`}
+                  >
+                    {execution.status}
+                  </span>
+                </div>
                           <p className="text-xs text-gray-500 dark:text-gray-400">
                             {formatDate(execution.startedAt)}
                           </p>
@@ -266,10 +281,20 @@ export default function ExecutionHistoryPanel({ isOpen, onClose }: ExecutionHist
                 <div className="bg-white dark:bg-gray-900 rounded-lg p-3 shadow-sm">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      {getStatusIcon(selectedExecution.status)}
-                      <span className="font-medium capitalize text-gray-900 dark:text-white">
-                        {selectedExecution.status}
-                      </span>
+                {getStatusIcon(selectedExecution.status)}
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold capitalize ${
+                    selectedExecution.status === "completed"
+                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                      : selectedExecution.status === "failed"
+                      ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                      : selectedExecution.status === "cancelled"
+                      ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                      : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                  }`}
+                >
+                  {selectedExecution.status}
+                </span>
                     </div>
                     <span className="text-sm text-gray-500 dark:text-gray-400">
                       {formatDuration(selectedExecution.duration)}

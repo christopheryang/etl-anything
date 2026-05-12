@@ -2,18 +2,16 @@
 
 **Status:** Pending (not implemented)
 
-
-> **Note:** This feature was documented but never implemented in the UI.**Feature ID:** F021
-
 ---
 
 ## Requirements
 
-- Replace all `alert()` calls in WorkflowCanvas with a toast/notification system
-- Toasts should appear in a fixed position (e.g., top-right or bottom-right)
-- Non-blocking: user can continue interacting with the canvas while toasts are visible
-- Auto-dismiss after a few seconds, or manually dismissible
-- Distinct visual styles for success, error, warning, info
+- **FR1:** Replace all `alert()` calls in WorkflowCanvas with a toast/notification system
+- **FR2:** Toasts should appear in a fixed position (e.g., top-right or bottom-right)
+- **FR3:** Non-blocking: user can continue interacting with the canvas while toasts are visible
+- **FR4:** Auto-dismiss after a few seconds, or manually dismissible
+- **FR5:** Distinct visual styles for success, error, warning, info
+- **NFR1:** No breaking changes to existing functionality
 
 ---
 
@@ -32,7 +30,7 @@
 
 ---
 
-## Implementation Summary
+## Implementation
 
 **Status:** Pending (not implemented)
 
@@ -49,8 +47,31 @@
 
 ---
 
+## Acceptance Criteria
+
+- [ ] **FR1:** Replace all `alert()` calls in WorkflowCanvas with a toast/notification system
+- [ ] **FR2:** Toasts should appear in a fixed position (e.g., top-right or bottom-right)
+- [ ] **FR3:** Non-blocking: user can continue interacting with the canvas while toasts are visible
+- [ ] **FR4:** Auto-dismiss after a few seconds, or manually dismissible
+- [ ] **FR5:** Distinct visual styles for success, error, warning, info
+- [ ] **NFR1:** No breaking changes to existing functionality
+
+---
+
+## Test Cases
+
+- Verify feature works per requirements
+- Run `cd backend && source venv/bin/activate && python -m pytest tests/ -q`
+- Run `cd frontend && npx -p typescript tsc --noEmit`
+
+---
+
 ## Caveats
 
 - Toasts require a fixed-position container — ensure it doesn't overlap with ReactFlow canvas controls
 - Multiple toasts stacking vertically need to be handled gracefully (max 3 visible, oldest dismissed)
 - For workshop environment, keep toast animation minimal — reduces distraction
+
+---
+
+## Files Modified

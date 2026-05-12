@@ -83,7 +83,7 @@ export const ReasoningNode: React.FC<NodeProps<ReasoningNodeData>> = ({
             <option value="haiku-4.5">Claude Haiku 4.5 (Anthropic)</option>
             <option value="sonnet-4.7">Claude Sonnet 4.7 (Anthropic)</option>
             <option value="opus-4.7">Claude Opus 4.7 (Anthropic)</option>
-            <option value="qwen/qwen3.5-397b-a17b" selected>Qwen 3.5 397B (NVIDIA)</option>
+            <option value="qwen/qwen3.5-397b-a17b">Qwen 3.5 397B (NVIDIA)</option>
             <option value="minimax/minimax-m2.7">MiniMax M2.7 (NVIDIA)</option>
             <option value="thudm/glm-4.7">GLM 4.7 (NVIDIA)</option>
           </select>
@@ -130,7 +130,7 @@ export const ReasoningNode: React.FC<NodeProps<ReasoningNodeData>> = ({
          model === "haiku-4.5" ? "Claude Haiku 4.5" :
          model === "sonnet-4.7" ? "Claude Sonnet 4.7" :
          model === "opus-4.7" ? "Claude Opus 4.7" : 
-         model.split('/').pop()?.substring(0, 30)} - {" "}
+         (model || "").split('/').pop()?.substring(0, 30)} - {" "}
         {prompt ? "Configured" : "Set prompt"}
       </div>
       <Handle

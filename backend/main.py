@@ -147,6 +147,8 @@ class WorkflowDefinition(BaseModel):
 
 class ExecuteRequest(BaseModel):
     workflow: WorkflowDefinition
+    workflowName: Optional[str] = None
+    workflowId: Optional[str] = None
 
 
 class NodeStatus(BaseModel):
@@ -474,7 +476,7 @@ def execute_node_recursive(
         raise
 
 
-def save_execution_history(execution_id: str, workflow: WorkflowDefinition, error: Optional[str] = None):
+def save_execution_history(execution_id: str, workflow: WorkflowDefinition, error: Optional[str] = None, workflow_name: Optional[str] = None, workflow_id: Optional[str] = None):
     """Save execution record to history after completion or failure."""
     try:
         if execution_id not in executions:
@@ -486,12 +488,19 @@ def save_execution_history(execution_id: str, workflow: WorkflowDefinition, erro
         completed = datetime.fromisoformat(execution.completed_at.replace('Z', '+00:00')) if execution.completed_at else datetime.now(timezone.utc)
         duration_ms = int((completed - started).total_seconds() * 1000)
         
-        # Extract workflow name from nodes (first input node or default)
-        workflow_name = f"Workflow {execution_id[:8]}"
-        for node in workflow.nodes:
-            if node.type == "input" and hasattr(node.data, 'fileName'):
-                workflow_name = f"ETL: {node.data.fileName}"
-                break
+        # Determine workflow name
+        if workflow_name:
+            workflow_name_final = workflow_name
+        else:
+            # Extract workflow name from nodes (first input node or default)
+            workflow_name_final = f"Workflow {execution_id[:8]}"
+            for node in workflow.nodes:
+                if node.type == "input" and hasattr(node.data, 'fileName'):
+                    workflow_name_final = f"ETL: {node.data.fileName}"
+                    break
+        
+        # Use actual workflow_id if provided, otherwise use name as ID for simplicity
+        workflow_id_final = workflow_id if workflow_id else workflow_name_final
         
         # Collect node results
         node_results_list = []
@@ -520,8 +529,8 @@ def save_execution_history(execution_id: str, workflow: WorkflowDefinition, erro
         # Create execution record
         record = ExecutionRecord(
             executionId=execution_id,
-            workflowId=workflow_name,  # Using name as ID for simplicity
-            workflowName=workflow_name,
+            workflowId=workflow_id_final,
+            workflowName=workflow_name_final,
             status=execution.status,
             startedAt=execution.started_at,
             completedAt=execution.completed_at,
@@ -540,13 +549,15 @@ def save_execution_history(execution_id: str, workflow: WorkflowDefinition, erro
         logger.error(f"Failed to save execution history: {e}")
 
 
-async def execute_workflow_engine(execution_id: str, workflow: WorkflowDefinition):
+async def execute_workflow_engine(execution_id: str, workflow: WorkflowDefinition, workflow_name: Optional[str] = None, workflow_id: Optional[str] = None):
     """
     Background task to execute a workflow.
     
     Args:
         execution_id: Unique ID for this execution
         workflow: The workflow definition to execute
+        workflow_name: Name of the workflow (for history records)
+        workflow_id: ID of the workflow (for history records)
     """
     logger.info("")
     logger.info("=" * 80)
@@ -601,10 +612,10 @@ async def execute_workflow_engine(execution_id: str, workflow: WorkflowDefinitio
             executions[execution_id].status = "completed"
             executions[execution_id].completed_at = datetime.now(timezone.utc).isoformat()
             logger.info(f"Status updated: processing → completed")
-        
+
         # Save execution history
-        save_execution_history(execution_id, workflow)
-    
+        save_execution_history(execution_id, workflow, workflow_name=workflow_name, workflow_id=workflow_id)
+
     except Exception as e:
         logger.error("=" * 80)
         logger.error(f"WORKFLOW EXECUTION FAILED")
@@ -620,7 +631,7 @@ async def execute_workflow_engine(execution_id: str, workflow: WorkflowDefinitio
             logger.info(f"Status updated: processing → failed")
         
         # Save execution history (even for failed executions)
-        save_execution_history(execution_id, workflow, error=str(e))
+        save_execution_history(execution_id, workflow, error=str(e), workflow_name=workflow_name, workflow_id=workflow_id)
 
 
 # API Endpoints
@@ -692,7 +703,9 @@ async def execute_workflow(
     background_tasks.add_task(
         execute_workflow_engine,
         execution_id,
-        request.workflow
+        request.workflow,
+        request.workflowName,
+        request.workflowId
     )
     
     logger.info(f"Response: execution_id={execution_id}, status=queued")
@@ -788,6 +801,129 @@ async def download_execution_output(execution_id: str):
 
 
 # ==============================================================================
+# Prompt-to-Workflow Generation
+# ==============================================================================
+
+from prompt_builder import build_workflow_generation_prompt
+
+
+class GenerateWorkflowRequest(BaseModel):
+ prompt: str
+ current_workflow: Optional[WorkflowDefinition] = None
+ model: Optional[str] = "qwen/qwen3.5-397b-a17b"
+
+
+class GenerateWorkflowResponse(BaseModel):
+    explanation: str
+    workflow: WorkflowDefinition
+
+
+@app.post("/api/workflows/generate", response_model=GenerateWorkflowResponse)
+async def generate_workflow(request: GenerateWorkflowRequest):
+    """Generate or modify a workflow from a natural language prompt."""
+    if not nvidia_client:
+        raise HTTPException(
+            status_code=503,
+            detail="NVIDIA NIM client not configured. Set NVIDIA_API_KEY to enable workflow generation.",
+        )
+
+    # Gather available files
+    available_files = []
+    if UPLOADS_DIR.exists():
+        available_files = [
+            f.name for f in UPLOADS_DIR.iterdir() if f.is_file()
+        ]
+
+    # Build the current workflow context (if any)
+    current_wf_dict = None
+    if request.current_workflow:
+        current_wf_dict = request.current_workflow.model_dump()
+
+    # Build system prompt
+    system_prompt = build_workflow_generation_prompt(
+        available_files=available_files,
+        current_workflow=current_wf_dict,
+    )
+
+    logger.info(f"POST /api/workflows/generate - Prompt: {request.prompt[:100]}...")
+
+    try:
+        # Call NVIDIA NIM to generate the workflow
+        completion = nvidia_client.chat.completions.create(
+            model=request.model or "qwen/qwen3.5-397b-a17b",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": request.prompt},
+            ],
+            temperature=0.3,
+            max_tokens=4096,
+        )
+
+        raw_response = completion.choices[0].message.content
+        logger.info(f"LLM response length: {len(raw_response)} chars")
+
+        # Strip markdown code blocks if the LLM wrapped its output
+        cleaned = raw_response.strip()
+        if cleaned.startswith("```"):
+            # Remove opening ```json or ```
+            first_newline = cleaned.index("\n")
+            cleaned = cleaned[first_newline + 1:]
+            # Remove closing ```
+            if cleaned.endswith("```"):
+                cleaned = cleaned[:-3].rstrip()
+            cleaned = cleaned.strip()
+
+        # Parse the JSON response
+        parsed = json.loads(cleaned)
+
+        # Validate required fields
+        if "explanation" not in parsed or "nodes" not in parsed or "edges" not in parsed:
+            raise ValueError(
+                "LLM response missing required fields (explanation, nodes, edges). "
+                f"Got keys: {list(parsed.keys())}"
+            )
+
+        # Ensure node types use frontend naming ("reasoning" not "llm")
+        for node in parsed["nodes"]:
+            if node.get("type") == "llm":
+                node["type"] = "reasoning"
+
+        # Build the WorkflowDefinition
+        workflow = WorkflowDefinition(
+            nodes=[Node(**n) for n in parsed["nodes"]],
+            edges=[Edge(**e) for e in parsed["edges"]],
+        )
+
+        logger.info(
+            f"Generated workflow: {len(workflow.nodes)} nodes, {len(workflow.edges)} edges"
+        )
+
+        return GenerateWorkflowResponse(
+            explanation=parsed["explanation"],
+            workflow=workflow,
+        )
+
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse LLM JSON response: {e}")
+        raise HTTPException(
+            status_code=502,
+            detail=f"LLM returned invalid JSON. Please try rephrasing your prompt. Error: {str(e)}",
+        )
+    except ValueError as e:
+        logger.error(f"LLM response schema error: {e}")
+        raise HTTPException(
+            status_code=502,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.error(f"Workflow generation error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Workflow generation failed: {str(e)}",
+        )
+
+
+# ==============================================================================
 # Workflow Save / Load Endpoints
 # ==============================================================================
 
@@ -813,12 +949,18 @@ class WorkflowMetadata(BaseModel):
 
 class WorkflowListResponse(BaseModel):
     workflows: List[WorkflowMetadata]
+    total_count: int
 
 
 @app.get("/api/workflows", response_model=WorkflowListResponse)
-async def list_workflows():
-    """List all saved workflows."""
-    workflows = []
+async def list_workflows(
+    page: int = 1,
+    page_size: int = 10,
+    sort_by: str = "updated_at",
+    sort_order: str = "desc",
+):
+    """List all saved workflows with pagination and sorting."""
+    all_workflows = []
     for wf_dir in WORKFLOWS_DIR.iterdir():
         if not wf_dir.is_dir():
             continue
@@ -827,11 +969,24 @@ async def list_workflows():
             continue
         try:
             meta = json.loads(meta_path.read_text())
-            workflows.append(WorkflowMetadata(**meta))
+            all_workflows.append(WorkflowMetadata(**meta))
         except Exception:
             continue
-    workflows.sort(key=lambda w: w.updated_at, reverse=True)
-    return WorkflowListResponse(workflows=workflows)
+
+    # Sort
+    allowed_sort = {"name", "created_at", "updated_at"}
+    if sort_by not in allowed_sort:
+        sort_by = "updated_at"
+    reverse = sort_order.lower() != "asc"
+    all_workflows.sort(key=lambda w: getattr(w, sort_by, ""), reverse=reverse)
+
+    total_count = len(all_workflows)
+    # Paginate
+    start = (page - 1) * page_size
+    end = start + page_size
+    workflows = all_workflows[start:end]
+
+    return WorkflowListResponse(workflows=workflows, total_count=total_count)
 
 
 @app.post("/api/workflows", response_model=WorkflowMetadata)
@@ -867,6 +1022,37 @@ async def load_workflow(workflow_id: str):
         raise HTTPException(status_code=404, detail="Workflow not found")
     data = json.loads(workflow_path.read_text())
     return WorkflowDefinition(**data)
+
+
+@app.put("/api/workflows/{workflow_id}", response_model=WorkflowMetadata)
+async def update_workflow(workflow_id: str, request: SaveWorkflowRequest):
+    """Update an existing saved workflow."""
+    wf_dir = WORKFLOWS_DIR / workflow_id
+    if not wf_dir.exists():
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    # Load existing metadata to preserve created_at
+    metadata_path = wf_dir / "metadata.json"
+    existing_metadata = {}
+    if metadata_path.exists():
+        existing_metadata = json.loads(metadata_path.read_text())
+
+    metadata = {
+        "id": workflow_id,
+        "name": request.name,
+        "description": request.description,
+        "created_at": existing_metadata.get("created_at", now),
+        "updated_at": now,
+        "node_count": len(request.workflow.nodes),
+        "edge_count": len(request.workflow.edges),
+    }
+    metadata_path.write_text(json.dumps(metadata, indent=2))
+    (wf_dir / "workflow.json").write_text(request.workflow.model_dump_json(indent=2))
+
+    logger.info(f"Updated workflow '{request.name}' (id={workflow_id})")
+    return WorkflowMetadata(**metadata)
 
 
 @app.delete("/api/workflows/{workflow_id}")

@@ -3,7 +3,7 @@
 Complete, consolidated requirements for all features in the ETL Anything project. Each requirement set links to its detailed feature document.
 
 **Last updated:** May 10, 2026  
-**Audit status:** All 26 features audited and documented
+**Audit status:** All 27 features audited and documented
 
 ## Feature Status Summary
 
@@ -35,9 +35,10 @@ Complete, consolidated requirements for all features in the ETL Anything project
 | F024 | Workflow Templates Library | ✅ Done | 5 built-in templates + library UI |
 | F025 | NVIDIA NIM Integration | ✅ Done | Backend complete, Frontend complete, 10 tests, live verified |
 | F026 | CSV Output Format | ✅ Done | Added CSV export with smart LLM cleaning |
+| F027 | Prompt-to-Workflow Generation | ✅ Done | AI-powered natural language workflow builder, 14 tests |
 
-**Implemented (UI):** F003, F008, F016, F022, F024  
-**Implemented (Backend):** F002, F006, F007, F025, F026  
+**Implemented (UI):** F003, F008, F016, F022, F024, F027 
+**Implemented (Backend):** F002, F006, F007, F025, F026, F027
 **Partial:** F001, F019  
 **Pending:** F004, F005, F009, F010, F011, F012, F013, F014, F015, F017, F018, F020, F021, F023
 

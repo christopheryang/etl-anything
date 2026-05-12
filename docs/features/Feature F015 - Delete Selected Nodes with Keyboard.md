@@ -2,15 +2,13 @@
 
 **Status:** Pending (not implemented)
 
-
-> **Note:** This feature was documented but never implemented in the UI.**Feature ID:** F015
-
 ---
 
 ## Requirements
 
-- Pressing Delete or Backspace removes selected nodes AND all edges connected to them
-- Skips when a modal is open or user is typing in an input/textarea
+- **FR1:** Pressing Delete or Backspace removes selected nodes AND all edges connected to them
+- **FR2:** Skips when a modal is open or user is typing in an input/textarea
+- **NFR1:** No breaking changes to existing functionality
 
 ---
 
@@ -22,7 +20,7 @@
 
 ---
 
-## Implementation Summary
+## Implementation
 
 **Files changed:**
 - `frontend/app/components/workflow/WorkflowCanvas.tsx`
@@ -40,8 +38,30 @@ setEdges((eds) => eds.filter(
 
 ---
 
+## Acceptance Criteria
+
+- [ ] **FR1:** Pressing Delete or Backspace removes selected nodes AND all edges connected to them
+- [ ] **FR2:** Skips when a modal is open or user is typing in an input/textarea
+- [ ] **NFR1:** No breaking changes to existing functionality
+
+---
+
+## Test Cases
+
+- Verify feature works per requirements
+- Run `cd backend && source venv/bin/activate && python -m pytest tests/ -q`
+- Run `cd frontend && npx -p typescript tsc --noEmit`
+
+---
+
 ## Caveats
 
 - No confirmation before delete (undo via Ctrl+Z available)
 - If no nodes are selected, Delete does nothing (silent)
 - Only selected nodes are deleted — edges attached to unselected nodes are preserved
+
+---
+
+## Files Modified
+
+- `frontend/app/components/workflow/WorkflowCanvas.tsx`

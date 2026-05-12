@@ -2,16 +2,14 @@
 
 **Status:** Pending (not implemented)
 
-
-> **Note:** This feature was documented but never implemented in the UI.**Feature ID:** F013
-
 ---
 
 ## Requirements
 
-- Undo and redo buttons in toolbar (Undo2/Redo2 icons)
-- Keyboard shortcuts: Ctrl+Z (undo), Ctrl+Shift+Z / Ctrl+Y (redo)
-- Uses ReactFlow's built-in history (no custom state management needed)
+- **FR1:** Undo and redo buttons in toolbar (Undo2/Redo2 icons)
+- **FR2:** Keyboard shortcuts: Ctrl+Z (undo), Ctrl+Shift+Z / Ctrl+Y (redo)
+- **FR3:** Uses ReactFlow's built-in history (no custom state management needed)
+- **NFR1:** No breaking changes to existing functionality
 
 ---
 
@@ -23,7 +21,7 @@
 
 ---
 
-## Implementation Summary
+## Implementation
 
 **Files changed:**
 - `frontend/app/components/workflow/WorkflowCanvas.tsx`
@@ -36,7 +34,30 @@
 
 ---
 
+## Acceptance Criteria
+
+- [ ] **FR1:** Undo and redo buttons in toolbar (Undo2/Redo2 icons)
+- [ ] **FR2:** Keyboard shortcuts: Ctrl+Z (undo), Ctrl+Shift+Z / Ctrl+Y (redo)
+- [ ] **FR3:** Uses ReactFlow's built-in history (no custom state management needed)
+- [ ] **NFR1:** No breaking changes to existing functionality
+
+---
+
+## Test Cases
+
+- Verify feature works per requirements
+- Run `cd backend && source venv/bin/activate && python -m pytest tests/ -q`
+- Run `cd frontend && npx -p typescript tsc --noEmit`
+
+---
+
 ## Caveats
 
 - History is ReactFlow-internal — clearing nodes (`setNodes([])`) does NOT integrate with undo/redo (manual clear via `clearWorkflow()` resets history)
 - No visual indication of undo/redo stack depth
+
+---
+
+## Files Modified
+
+- `frontend/app/components/workflow/WorkflowCanvas.tsx`

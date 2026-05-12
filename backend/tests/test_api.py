@@ -173,7 +173,36 @@ def test_list_workflows(client, sample_workflow):
     assert response.status_code == 200
     data = response.json()
     assert "workflows" in data
+    assert "total_count" in data
+    assert data["total_count"] >= 2
     assert len(data["workflows"]) >= 2
+
+
+def test_list_workflows_pagination(client, sample_workflow):
+    """Test pagination and sorting on GET /api/workflows."""
+    # Save three workflows
+    for name in ["Alpha", "Beta", "Gamma"]:
+        client.post(
+            "/api/workflows",
+            json={"name": name, "description": "", "workflow": sample_workflow}
+        )
+
+    # Default: page=1, page_size=10, sort by updated_at desc
+    resp = client.get("/api/workflows")
+    data = resp.json()
+    assert data["total_count"] >= 3
+    assert len(data["workflows"]) >= 3
+
+    # page_size=1 should return 1 workflow
+    resp = client.get("/api/workflows?page=1&page_size=1")
+    data = resp.json()
+    assert len(data["workflows"]) == 1
+
+    # sort by name ascending
+    resp = client.get("/api/workflows?sort_by=name&sort_order=asc&page_size=50")
+    data = resp.json()
+    names = [w["name"] for w in data["workflows"] if w["name"] in ("Alpha", "Beta", "Gamma")]
+    assert names == sorted(names)
 
 
 def test_load_workflow_not_found(client):

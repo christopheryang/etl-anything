@@ -25,7 +25,16 @@ Health check.
 
 ### `GET /api/workflows`
 
-List all saved workflows.
+List saved workflows with pagination and sorting.
+
+**Query parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `page` | int | 1 | Page number (1-indexed) |
+| `page_size` | int | 10 | Items per page |
+| `sort_by` | string | `updated_at` | Sort field: `name`, `created_at`, `updated_at` |
+| `sort_order` | string | `desc` | Sort direction: `asc` or `desc` |
 
 **Response:** `200 OK`
 ```json
@@ -39,7 +48,8 @@ List all saved workflows.
       "created_at": "2026-05-09T00:00:00Z",
       "updated_at": "2026-05-09T01:00:00Z"
     }
-  ]
+  ],
+  "total_count": 42
 }
 ```
 
@@ -102,6 +112,50 @@ Get a specific workflow by ID.
   },
   "created_at": "2026-05-09T00:00:00Z",
   "updated_at": "2026-05-09T00:00:00Z"
+}
+```
+
+**Error:** `404 Not Found` if workflow doesn't exist.
+
+---
+
+### `PUT /api/workflows/{workflow_id}`
+
+Update an existing workflow.
+
+**Request Body:**
+```json
+{
+  "name": "Updated Name",
+  "description": "Updated description",
+  "workflow": {
+    "nodes": [...],
+    "edges": [...]
+  }
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "workflowId": "abc-123",
+  "name": "Updated Name",
+  "message": "Workflow updated successfully"
+}
+```
+
+**Error:** `404 Not Found` if workflow doesn't exist.
+
+---
+
+### `DELETE /api/workflows/{workflow_id}`
+
+Delete a workflow.
+
+**Response:** `200 OK`
+```json
+{
+  "message": "Workflow deleted"
 }
 ```
 

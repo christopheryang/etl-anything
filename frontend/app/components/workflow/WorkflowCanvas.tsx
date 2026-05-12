@@ -14,14 +14,36 @@ import ReactFlow, {
   ReactFlowInstance,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { Play, Save, Download, ZoomIn, ZoomOut, Maximize2, Menu, X, Moon, Sun, Clock, BookOpen } from "lucide-react";
 import { useTheme } from "next-themes";
+import { ZoomIn, ZoomOut, Play, Save } from "lucide-react";
 import { nodeTypes } from "./nodes";
-import { Sidebar } from "./Sidebar";
-import { NodeData } from "../types/workflow";
+import { NodeData, PromptMessage } from "../types/workflow";
 import { NODE_CONFIGS } from "./nodeConfig";
 import ExecutionHistoryPanel from "./ExecutionHistoryPanel";
 import TemplateLibrary from "./TemplateLibrary";
+import { LeftSidebar } from "./LeftSidebar";
+import { ChatPanel } from "./ChatPanel";
+import { NodeLibrary } from "./NodeLibrary";
+import SaveWorkflowModal from "./SaveWorkflowModal";
+import WorkflowBrowser from "./WorkflowBrowser";
+
+const AVAILABLE_MODELS = [
+  "qwen/qwen3.5-397b-a17b",
+  "minimax/minimax-m2.7",
+  "thudm/glm-4.7",
+  "haiku-4.5",
+  "sonnet-4.7",
+  "opus-4.7",
+];
+
+const MODEL_LABELS: Record<string, string> = {
+  "qwen/qwen3.5-397b-a17b": "Qwen 3.5 397B (NVIDIA)",
+  "minimax/minimax-m2.7": "MiniMax M2.7 (NVIDIA)",
+  "thudm/glm-4.7": "GLM 4.7 (NVIDIA)",
+  "haiku-4.5": "Claude Haiku 4.5",
+  "sonnet-4.7": "Claude Sonnet 4.7",
+  "opus-4.7": "Claude Opus 4.7",
+};
 
 const WorkflowCanvas: React.FC = () => {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -30,6 +52,7 @@ const WorkflowCanvas: React.FC = () => {
   const [reactFlowInstance, setReactFlowInstance] =
     useState<ReactFlowInstance | null>(null);
   const [workflowName, setWorkflowName] = useState("Untitled Workflow");
+  const [workflowId, setWorkflowId] = useState<string | null>(null);
   const [workflowStatus, setWorkflowStatus] = useState<
     "idle" | "pending" | "processing" | "completed" | "failed"
   >("idle");
@@ -43,67 +66,120 @@ const WorkflowCanvas: React.FC = () => {
   const [showMiniMap, setShowMiniMap] = useState(true);
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
-  const [editingZoom, setEditingZoom] = useState(false);
-  const [zoomInputValue, setZoomInputValue] = useState("100");
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showWorkflowBrowser, setShowWorkflowBrowser] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [promptMessages, setPromptMessages] = useState<PromptMessage[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [selectedModel, setSelectedModel] = useState(
+    "qwen/qwen3.5-397b-a17b"
+  );
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [nodeLibraryExpanded, setNodeLibraryExpanded] = useState(false);
+
+  // Draggable splitter state — stores chat panel height in pixels
+  const [chatPanelHeight, setChatPanelHeight] = useState(350);
+  const isDraggingSplitter = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Theme hook
   const { theme, setTheme } = useTheme();
 
-  // ReactFlow hooks — must be called at top level
-  const { zoomTo, fitView, setViewport, getZoom } = useReactFlow();
+  // ReactFlow hooks
+  const { zoomTo, fitView, getZoom } = useReactFlow();
 
-  // Zoom tracking state
-  const [zoomPercent, setZoomPercent] = useState(100);
+ const [zoomPercent, setZoomPercent] = useState(100);
+ const [zoomInputValue, setZoomInputValue] = useState("100%");
 
-  // Track zoom on any canvas pan/zoom
-  const onMoveEnd = useCallback(() => {
-    const z = getZoom();
-    const pct = Math.round(z * 100);
-    setZoomPercent(pct);
-    setZoomInputValue(String(pct));
-  }, [getZoom]);
+ // Sync zoom display after ReactFlow initializes
+ useEffect(() => {
+ if (reactFlowInstance) {
+ const z = reactFlowInstance.getZoom();
+ const pct = Math.round(z * 100);
+ setZoomPercent(pct);
+ setZoomInputValue(`${pct}%`);
+ }
+ }, [reactFlowInstance]);
 
-  const zoomIn = useCallback(() => {
-    const z = getZoom();
-    const next = Math.min(2, z + 0.15);
-    zoomTo(next);
-    setZoomPercent(Math.round(next * 100));
+ const onMoveEnd = useCallback(() => {
+ const z = getZoom();
+ const pct = Math.round(z * 100);
+ setZoomPercent(pct);
+ setZoomInputValue(`${pct}%`);
+ }, [getZoom]);
+
+ const applyZoomInput = useCallback(() => {
+ const raw = zoomInputValue.replace(/%/, "");
+ const num = parseInt(raw, 10);
+ if (!isNaN(num) && num >= 10 && num <= 200) {
+ const z = num / 100;
+ zoomTo(z);
+ setZoomPercent(num);
+ setZoomInputValue(`${num}%`);
+ } else {
+ // Revert to current actual zoom
+ const pct = Math.round(getZoom() * 100);
+ setZoomPercent(pct);
+ setZoomInputValue(`${pct}%`);
+ }
+ }, [zoomInputValue, zoomTo, getZoom]);
+
+ const zoomInAction = useCallback(() => {
+ const z = getZoom();
+ const next = Math.min(2, z + 0.15);
+ zoomTo(next);
+ const pct = Math.round(next * 100);
+ setZoomPercent(pct);
+ setZoomInputValue(`${pct}%`);
+ }, [zoomTo, getZoom]);
+
+ const zoomOutAction = useCallback(() => {
+ const z = getZoom();
+ const next = Math.max(0.1, z - 0.15);
+ zoomTo(next);
+ const pct = Math.round(next * 100);
+ setZoomPercent(pct);
+ setZoomInputValue(`${pct}%`);
   }, [zoomTo, getZoom]);
 
-  const zoomOut = useCallback(() => {
-    const z = getZoom();
-    const next = Math.max(0.1, z - 0.15);
-    zoomTo(next);
-    setZoomPercent(Math.round(next * 100));
-  }, [zoomTo, getZoom]);
+  // ──── Draggable splitter ────
+  const handleSplitterMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingSplitter.current = true;
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+  }, []);
 
-  const resetZoom = useCallback(() => {
-    setViewport({ x: 0, y: 0, zoom: 1 });
-    setZoomPercent(100);
-  }, [setViewport]);
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingSplitter.current || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const newHeight = e.clientY - rect.top;
+      const clamped = Math.max(120, Math.min(newHeight, rect.height - 120));
+      setChatPanelHeight(clamped);
+    };
 
-  const fitViewToNodes = useCallback(() => {
-    fitView({ padding: 0.2, duration: 300 });
-    setTimeout(() => {
-      const z = getZoom();
-      setZoomPercent(Math.round(z * 100));
-      setZoomInputValue(String(Math.round(z * 100)));
-    }, 350);
-  }, [fitView, getZoom]);
+    const handleMouseUp = () => {
+      if (isDraggingSplitter.current) {
+        isDraggingSplitter.current = false;
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      }
+    };
 
-  const applyZoomInput = useCallback((value: string) => {
-    setEditingZoom(false);
-    const num = parseInt(value, 10);
-    if (isNaN(num) || num < 10) return;
-    const clamped = Math.min(200, num);
-    const zoom = clamped / 100;
-    zoomTo(zoom);
-    setZoomPercent(clamped);
-    setZoomInputValue(String(clamped));
-  }, [zoomTo]);
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, []);
 
-  // Edge connection
+  // ──── Edge connection ────
   const onConnect = useCallback(
     (params: Connection) => {
       const sourceNode = nodes.find((n) => n.id === params.source);
@@ -150,7 +226,7 @@ const WorkflowCanvas: React.FC = () => {
     [setEdges, nodes]
   );
 
-  // Drag and drop from sidebar
+  // ──── Drag and drop from sidebar ────
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
@@ -184,7 +260,7 @@ const WorkflowCanvas: React.FC = () => {
     [reactFlowInstance, setNodes]
   );
 
-  // Cleanup polling on unmount
+  // ──── Cleanup polling on unmount ────
   useEffect(() => {
     return () => {
       if (pollingIntervalRef.current) {
@@ -193,7 +269,59 @@ const WorkflowCanvas: React.FC = () => {
     };
   }, []);
 
-  // Poll for execution status
+  // ──── Track unsaved changes & auto-save ────
+  useEffect(() => {
+    // Skip before first render or if no nodes
+    if (nodes.length === 0 && edges.length === 0) return;
+    setHasUnsavedChanges(true);
+
+    // Auto-save: debounce 3 seconds after last change (only if workflow already has an ID)
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+    if (workflowId) {
+      autoSaveTimerRef.current = setTimeout(async () => {
+        try {
+          const workflowData = {
+            name: workflowName,
+            description: "",
+            workflow: {
+              nodes: nodes.map((n) => ({
+                id: n.id,
+                type: n.type,
+                position: n.position,
+                data: n.data,
+              })),
+              edges: edges.map((e) => ({
+                id: e.id,
+                source: e.source,
+                target: e.target,
+                sourceHandle: e.sourceHandle,
+              })),
+            },
+          };
+          const response = await fetch(`/api/workflows/${workflowId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(workflowData),
+          });
+          if (response.ok) {
+            setHasUnsavedChanges(false);
+          }
+        } catch {
+          // Silent fail for auto-save — don't disrupt the user
+        }
+      }, 3000);
+    }
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [nodes, edges, workflowName, workflowId]);
+
+  // ──── Poll for execution status ────
   const pollJobStatus = useCallback(async (executionId: string) => {
     try {
       const response = await fetch(`/api/executions/${executionId}/status`);
@@ -224,7 +352,6 @@ const WorkflowCanvas: React.FC = () => {
         setProgress(100);
         setStatusMessage("Workflow completed successfully!");
 
-        // Auto-reset after 10 seconds
         setTimeout(() => {
           setWorkflowStatus("idle");
           setStatusMessage("");
@@ -260,6 +387,7 @@ const WorkflowCanvas: React.FC = () => {
     }
   }, []);
 
+  // ──── Run workflow ────
   const runWorkflow = async () => {
     try {
       setIsExecuting(true);
@@ -283,11 +411,12 @@ const WorkflowCanvas: React.FC = () => {
             };
           })
           .filter((node): node is NonNullable<typeof node> => node !== null),
-        edges: edges.map((edge) => ({
-          id: edge.id,
-          source: edge.source,
-          target: edge.target,
-        })),
+ edges: edges.map((edge) => ({
+ id: edge.id,
+ source: edge.source,
+ target: edge.target,
+ sourceHandle: edge.sourceHandle || undefined,
+ })),
       };
 
       if (workflowDefinition.nodes.length === 0) {
@@ -297,16 +426,15 @@ const WorkflowCanvas: React.FC = () => {
         return;
       }
 
-      console.log(
-        "Sending workflow:",
-        JSON.stringify(workflowDefinition, null, 2)
-      );
-
-      const response = await fetch("/api/workflows/execute", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workflow: workflowDefinition }),
-      });
+    const response = await fetch("/api/workflows/execute", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        workflow: workflowDefinition,
+        workflowName,
+        workflowId,
+      }),
+    });
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -340,6 +468,7 @@ const WorkflowCanvas: React.FC = () => {
     }
   };
 
+  // ──── Download output ────
   const downloadOutput = async () => {
     if (!currentExecutionId) return;
     try {
@@ -377,277 +506,427 @@ const WorkflowCanvas: React.FC = () => {
     }
   };
 
+  // ──── Load template ────
   const loadTemplate = (workflow: any) => {
-    // Load template workflow onto canvas
-    setNodes(workflow.nodes.map((node: any) => ({
-      ...node,
-      data: node.data,
-    })));
-    setEdges(workflow.edges.map((edge: any) => ({
-      ...edge,
-      type: edge.type || 'default',
-    })));
+    setNodes(
+      workflow.nodes.map((node: any) => ({
+        ...node,
+        data: node.data,
+      }))
+    );
+    setEdges(
+      workflow.edges.map((edge: any) => ({
+        ...edge,
+        type: edge.type || "default",
+      }))
+    );
     setWorkflowName(`Template: ${new Date().toLocaleDateString()}`);
+    setWorkflowId(null);
+    setHasUnsavedChanges(false);
     fitView({ padding: 0.3, duration: 300 });
   };
 
+  // ──── Prompt-to-Workflow generation ────
+  const handleGenerate = async (prompt: string) => {
+    const userMsg: PromptMessage = {
+      role: "user",
+      content: prompt,
+      timestamp: new Date().toISOString(),
+    };
+    setPromptMessages((prev) => [...prev, userMsg]);
+    setIsGenerating(true);
+
+    try {
+      const response = await fetch("/api/workflows/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt,
+          model: selectedModel,
+          current_workflow:
+            nodes.length > 0
+              ? {
+                  nodes: nodes.map((n) => ({
+                    id: n.id,
+                    type: n.type,
+                    position: n.position,
+                    data: n.data,
+                  })),
+                  edges: edges.map((e) => ({
+                    id: e.id,
+                    source: e.source,
+                    target: e.target,
+                    sourceHandle: e.sourceHandle || undefined,
+                  })),
+                }
+              : null,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Generation failed");
+      }
+
+      const data = await response.json();
+
+      if (data.workflow?.nodes) {
+        setNodes(
+          data.workflow.nodes.map((node: any) => ({
+            ...node,
+            data: node.data,
+          }))
+        );
+      }
+      if (data.workflow?.edges) {
+        setEdges(
+          data.workflow.edges.map((edge: any) => ({
+            ...edge,
+            type: edge.type || "default",
+          }))
+        );
+      }
+
+      const assistantMsg: PromptMessage = {
+        role: "assistant",
+        content: data.explanation || "Workflow generated successfully.",
+        timestamp: new Date().toISOString(),
+      };
+      setPromptMessages((prev) => [...prev, assistantMsg]);
+
+      setTimeout(() => fitView({ padding: 0.3, duration: 300 }), 100);
+    } catch (error) {
+      const errorMsg: PromptMessage = {
+        role: "assistant",
+        content: `Error: ${
+          error instanceof Error ? error.message : "Unknown error occurred"
+        }`,
+        timestamp: new Date().toISOString(),
+      };
+      setPromptMessages((prev) => [...prev, errorMsg]);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // ──── Save workflow ────
+  const handleSaveClick = () => {
+    setShowSaveModal(true);
+  };
+
+  const saveWorkflow = async (name: string, description: string) => {
+    setIsSaving(true);
+    try {
+      const workflowData = {
+        name,
+        description,
+        workflow: {
+          nodes: nodes.map((n) => ({
+            id: n.id,
+            type: n.type,
+            position: n.position,
+            data: n.data,
+          })),
+          edges: edges.map((e) => ({
+            id: e.id,
+            source: e.source,
+            target: e.target,
+            sourceHandle: e.sourceHandle,
+          })),
+        },
+      };
+
+      let response: Response;
+      if (workflowId) {
+        // Update existing workflow
+        response = await fetch(`/api/workflows/${workflowId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(workflowData),
+        });
+      } else {
+        // Save new workflow
+        response = await fetch("/api/workflows", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(workflowData),
+        });
+      }
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to save workflow");
+      }
+
+      const saved = await response.json();
+      setWorkflowName(name);
+      // Capture workflow ID from save response
+      if (saved.workflowId) {
+        setWorkflowId(saved.workflowId);
+      }
+      setHasUnsavedChanges(false);
+      setShowSaveModal(false);
+    } catch (error) {
+      console.error("Save error:", error);
+      alert(
+        `Failed to save workflow: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // ──── Load workflow ────
+  const loadWorkflow = async (wfId: string, name: string) => {
+    try {
+      const response = await fetch(`/api/workflows/${wfId}`);
+      if (!response.ok) throw new Error("Failed to load workflow");
+
+      const data = await response.json();
+      if (data.nodes) {
+        setNodes(
+          data.nodes.map((node: any) => ({
+            ...node,
+            data: node.data,
+          }))
+        );
+      }
+      if (data.edges) {
+        setEdges(
+          data.edges.map((edge: any) => ({
+            ...edge,
+            type: edge.type || "default",
+          }))
+        );
+      }
+      setWorkflowName(name);
+      setWorkflowId(wfId);
+      setHasUnsavedChanges(false);
+      // Note: Removed fitView to preserve user's zoom level
+    } catch (error) {
+      console.error("Load error:", error);
+      alert(
+        `Failed to load workflow: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
+  };
+
   return (
- <div className="w-full h-screen bg-gray-50 dark:bg-gray-950">
- {/* Header */}
- <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between dark:bg-gray-900 dark:border-gray-800">
- <div className="flex items-center gap-4">
- <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">ETL Anything</h1>
+    <div className="flex w-full h-screen bg-gray-50 dark:bg-gray-950 overflow-hidden">
+      {/* Left Sidebar Rail */}
+      <LeftSidebar
+        onSave={handleSaveClick}
+        onOpen={() => setShowWorkflowBrowser(true)}
+ onHistory={() => setShowHistoryPanel(true)}
+ onTemplates={() => setShowTemplateLibrary(true)}
+ isExpanded={sidebarExpanded}
+ onToggleExpand={() => setSidebarExpanded(!sidebarExpanded)}
+        showSettingsMenu={showSettingsMenu}
+        setShowSettingsMenu={setShowSettingsMenu}
+        theme={theme || "light"}
+        setTheme={setTheme}
+        availableModels={AVAILABLE_MODELS.map(
+          (m) => MODEL_LABELS[m] || m
+        )}
+        selectedModel={MODEL_LABELS[selectedModel] || selectedModel}
+        onModelChange={(label) => {
+          const key = Object.entries(MODEL_LABELS).find(
+            ([, v]) => v === label
+          );
+          if (key) setSelectedModel(key[0]);
+        }}
+        showMiniMap={showMiniMap}
+        setShowMiniMap={setShowMiniMap}
+      />
+
+      {/* Main Content Area — vertically split with draggable divider */}
+      <div ref={containerRef} className="flex flex-col flex-1 min-w-0">
+
+        {/* Top: Chat Panel (resizable height) */}
+        <div style={{ height: chatPanelHeight }} className="min-h-0 overflow-hidden">
+          <ChatPanel
+            onGenerate={handleGenerate}
+            isGenerating={isGenerating}
+            messages={promptMessages}
+          />
+        </div>
+
+        {/* Draggable splitter bar */}
+        <div
+          onMouseDown={handleSplitterMouseDown}
+          className="flex-shrink-0 h-2 bg-gray-200 dark:bg-gray-700 hover:bg-teal-400 dark:hover:bg-teal-600 cursor-row-resize transition-colors flex items-center justify-center group"
+          title="Drag to resize"
+        >
+          <div className="w-8 h-1 rounded-full bg-gray-400 dark:bg-gray-500 group-hover:bg-white transition-colors" />
+        </div>
+
+        {/* Bottom: ReactFlow Canvas + Node Library */}
+        <div className="flex flex-col flex-1 min-h-0">
+      {/* Workflow name bar + status */}
+      <div className="flex items-center gap-3 px-4 py-1.5 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+        <input
+          type="text"
+          value={workflowName}
+          onChange={(e) => setWorkflowName(e.target.value)}
+          className="px-2 py-0.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-teal-500"
+        />
+        {hasUnsavedChanges && (
+          <span className="w-2 h-2 rounded-full bg-amber-400" title="Unsaved changes" />
+        )}
+        {/* Run button */}
+        <button
+          onClick={runWorkflow}
+          disabled={isExecuting || nodes.length === 0}
+          className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md bg-teal-600 hover:bg-teal-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          title="Run workflow"
+        >
+          <Play size={12} fill="currentColor" />
+          {isExecuting ? "Running..." : "Run"}
+        </button>
+        {/* Save button (quick save — uses existing workflowId or opens modal) */}
+        {workflowId && (
+          <button
+            onClick={() => saveWorkflow(workflowName, "")}
+            disabled={!hasUnsavedChanges || isSaving}
+            className="flex items-center gap-1 px-2 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            title={hasUnsavedChanges ? "Save changes" : "No changes"}
+          >
+            <Save size={12} />
+          </button>
+        )}
+ {/* Zoom controls */}
+ <div className="flex items-center gap-1 ml-auto">
+ <button
+ onClick={zoomOutAction}
+ className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 transition-colors"
+ title="Zoom Out"
+ >
+ <ZoomOut size={16} />
+ </button>
  <input
  type="text"
- value={workflowName}
- onChange={(e) => setWorkflowName(e.target.value)}
- className="px-3 py-1 text-sm border rounded-md bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+ value={zoomInputValue}
+ onChange={(e) => setZoomInputValue(e.target.value)}
+ onBlur={applyZoomInput}
+ onKeyDown={(e) => { if (e.key === "Enter") applyZoomInput(); }}
+ className="w-10 text-xs font-mono text-center text-gray-500 dark:text-gray-400 bg-transparent border border-gray-200 dark:border-gray-700 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-teal-500"
  />
- </div>
-
-        <div className="flex items-center gap-2">
-          {/* Zoom controls */}
- <div className="flex items-center gap-1 border border-gray-300 rounded-md px-1 py-1 bg-white dark:bg-gray-800 dark:border-gray-700">
  <button
- onClick={zoomOut}
- className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
- title="Zoom out"
+ onClick={zoomInAction}
+ className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 transition-colors"
+ title="Zoom In"
  >
- <ZoomOut className="w-4 h-4 text-gray-600 dark:text-gray-300" />
-            </button>
-            {editingZoom ? (
-              <input
-                type="text"
-                value={zoomInputValue}
-                onChange={(e) => setZoomInputValue(e.target.value)}
-                onBlur={() => applyZoomInput(zoomInputValue)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") applyZoomInput(zoomInputValue);
-                  if (e.key === "Escape") {
-                    setEditingZoom(false);
-                    setZoomInputValue(String(zoomPercent));
-                  }
-                }}
-                className="w-12 text-xs text-center border-none bg-transparent font-medium text-gray-600 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-teal-400 rounded px-0.5"
-                autoFocus
-              />
-            ) : (
-              <span
-                onClick={() => {
-                  setEditingZoom(true);
-                  setZoomInputValue(String(zoomPercent));
-                }}
-                className="text-xs text-gray-600 dark:text-gray-300 font-medium w-12 text-center cursor-text hover:bg-gray-100 dark:hover:bg-gray-700 rounded px-1 py-0.5 transition-colors"
-                title="Click to edit zoom level"
-              >
-                {zoomPercent}%
-              </span>
-            )}
- <button
- onClick={zoomIn}
- className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
- title="Zoom in"
- >
- <ZoomIn className="w-4 h-4 text-gray-600 dark:text-gray-300" />
- </button>
- <button
- onClick={fitViewToNodes}
- className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
- title="Fit all nodes in view"
- >
- <Maximize2 className="w-4 h-4 text-gray-600 dark:text-gray-300" />
-            </button>
-          </div>
-
-          <button
-            onClick={runWorkflow}
-            disabled={isExecuting}
-            className={`flex items-center gap-2 px-4 py-2 text-sm rounded-md transition-colors ${
-              isExecuting
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-teal-600 hover:bg-teal-700"
-            } text-white`}
-          >
-            <Play className="w-4 h-4" />
-            {isExecuting ? "Running..." : "Run Workflow"}
-          </button>
-          {workflowStatus === "completed" && currentExecutionId && (
-            <button
-              onClick={downloadOutput}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors"
-            >
-              <Download className="w-4 h-4" />
-              Download Output
-            </button>
-          )}
-<button className="flex items-center gap-2 px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800 transition-colors">
-<Save className="w-4 h-4" />
-Save
-</button>
-<button
-onClick={() => setShowHistoryPanel(true)}
-className="flex items-center gap-2 px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800 transition-colors"
->
-<Clock className="w-4 h-4" />
-History
-</button>
-<button
-onClick={() => setShowTemplateLibrary(true)}
-className="flex items-center gap-2 px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800 transition-colors"
->
-<BookOpen className="w-4 h-4" />
-Templates
-</button>
-
- {/* Settings menu — far right */}
- <button
- onClick={() => setShowSettingsMenu(!showSettingsMenu)}
- className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800 transition-colors"
- >
- <Menu className="w-4 h-4" />
- </button>
-
- {/* Settings dropdown */}
- {showSettingsMenu && (
- <div className="absolute right-4 top-16 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-56 dark:bg-gray-900 dark:border-gray-700">
- <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 dark:border-gray-800">
- <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Settings</span>
- <button
- onClick={() => setShowSettingsMenu(false)}
- className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
- >
- <X className="w-4 h-4 dark:text-gray-400" />
+ <ZoomIn size={16} />
  </button>
  </div>
- <div className="py-1">
- {/* Theme toggle */}
- <button
- onClick={() => {
- setTheme(theme === "dark" ? "light" : "dark");
- setShowSettingsMenu(false);
- }}
- className="w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
- >
- <span className="text-gray-700 dark:text-gray-200 flex items-center gap-2">
- {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
- Theme
- </span>
- <span className={`text-xs font-medium ${theme === "dark" ? "text-teal-600" : "text-gray-400"}`}>
- {theme === "dark" ? "Dark" : "Light"}
- </span>
- </button>
-
- <button
- onClick={() => {
- setShowMiniMap(!showMiniMap);
- setShowSettingsMenu(false);
- }}
- className="w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
- >
- <span className="text-gray-700 dark:text-gray-200">MiniMap</span>
- <span className={`text-xs font-medium ${showMiniMap ? "text-teal-600" : "text-gray-400"}`}>
- {showMiniMap ? "On" : "Off"}
- </span>
- </button>
- <div className="px-3 py-2 border-t border-gray-100 dark:border-gray-800">
- <span className="text-xs text-gray-500 dark:text-gray-400">Zoom: {zoomPercent}%</span>
- </div>
- </div>
- </div>
- )}
-
- </div>
- </div>
-
- {/* Status Bar */}
  {workflowStatus !== "idle" && (
- <div className="bg-white border-b border-gray-200 px-6 py-2 dark:bg-gray-900 dark:border-gray-800">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <div
-                className={`w-2 h-2 rounded-full ${
-                  workflowStatus === "completed"
-                    ? "bg-green-500"
-                    : workflowStatus === "failed"
-                    ? "bg-red-500"
-                    : "bg-blue-500 animate-pulse"
-                }`}
-              />
- <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
- {workflowStatus === "pending" && "Submitting workflow..."}
- {workflowStatus === "processing" &&
- `Processing... ${progress}%`}
- {workflowStatus === "completed" && "Complete"}
- {workflowStatus === "failed" && "Error"}
- </span>
- </div>
- <div className="flex-1 flex items-center gap-3">
- <span className="text-sm text-gray-600 dark:text-gray-300">{statusMessage}</span>
- {workflowStatus === "processing" && (
- <div className="flex-1 max-w-xs">
- <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div className="flex items-center gap-2">
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    workflowStatus === "completed"
+                      ? "bg-green-500"
+                      : workflowStatus === "failed"
+                      ? "bg-red-500"
+                      : "bg-blue-500 animate-pulse"
+                  }`}
+                />
+                <span className="text-xs text-gray-600 dark:text-gray-300">
+                  {statusMessage}
+                </span>
+                {workflowStatus === "processing" && (
+                  <div className="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
                     <div
-                      className="bg-teal-600 h-2 rounded-full transition-all duration-300"
+                      className="bg-teal-600 h-1.5 rounded-full transition-all duration-300"
                       style={{ width: `${progress}%` }}
                     />
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+                {workflowStatus === "completed" && (
+                  <button
+                    onClick={downloadOutput}
+                    className="text-xs text-teal-600 hover:text-teal-700 dark:text-teal-400"
+                  >
+                    Download Output
+                  </button>
+                )}
+              </div>
+            )}
           </div>
-        </div>
-      )}
 
-      {/* Canvas */}
-      <div
-        className={`w-full ${
-          workflowStatus !== "idle"
-            ? "h-[calc(100vh-112px)]"
-            : "h-[calc(100vh-60px)]"
-        }`}
-        ref={reactFlowWrapper}
-      >
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onInit={setReactFlowInstance}
-          onDrop={onDrop}
-          onDragOver={onDragOver}
-          onMoveEnd={onMoveEnd}
-          nodeTypes={nodeTypes}
+          {/* Canvas */}
+          <div className="flex-1 min-h-0" ref={reactFlowWrapper}>
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              onInit={setReactFlowInstance}
+              onDrop={onDrop}
+              onDragOver={onDragOver}
+              onMoveEnd={onMoveEnd}
+              nodeTypes={nodeTypes}
  className="bg-gray-50 dark:bg-gray-950"
+ defaultViewport={{ x: 0, y: 0, zoom: 1 }}
  >
- <Background color="#e5e7eb" gap={20} className="dark:opacity-20" />
- {showMiniMap && (
- <MiniMap
- nodeColor={(node) => {
- const config = NODE_CONFIGS[node.type as string];
- return config?.color || "#6b7280";
- }}
- className="bg-white border border-gray-200 dark:bg-gray-900 dark:border-gray-700"
- />
-          )}
-        </ReactFlow>
+              <Background
+                color="#e5e7eb"
+                gap={20}
+                className="dark:opacity-20"
+              />
+              {showMiniMap && (
+                <MiniMap
+                  nodeColor={(node) => {
+                    const config = NODE_CONFIGS[node.type as string];
+                    return config?.color || "#6b7280";
+                  }}
+                  className="bg-white border border-gray-200 dark:bg-gray-900 dark:border-gray-700"
+                />
+              )}
+            </ReactFlow>
+          </div>
 
-        <Sidebar />
-        
-        {/* Execution History Panel */}
-        <ExecutionHistoryPanel
-          isOpen={showHistoryPanel}
-          onClose={() => setShowHistoryPanel(false)}
-        />
-        
-        {/* Template Library Modal */}
-        <TemplateLibrary
-          isOpen={showTemplateLibrary}
-          onClose={() => setShowTemplateLibrary(false)}
-          onLoadTemplate={loadTemplate}
-        />
+          {/* Node Library — collapsible bottom panel */}
+          <NodeLibrary
+            isExpanded={nodeLibraryExpanded}
+            onToggle={() => setNodeLibraryExpanded(!nodeLibraryExpanded)}
+          />
+        </div>
       </div>
-    </div>
+
+      {/* Execution History Panel */}
+      <ExecutionHistoryPanel
+        isOpen={showHistoryPanel}
+        onClose={() => setShowHistoryPanel(false)}
+      />
+
+ {/* Template Library Modal */}
+ <TemplateLibrary
+ isOpen={showTemplateLibrary}
+ onClose={() => setShowTemplateLibrary(false)}
+ onLoadTemplate={loadTemplate}
+ />
+
+ {/* Save Workflow Modal */}
+ <SaveWorkflowModal
+ isOpen={showSaveModal}
+ onClose={() => setShowSaveModal(false)}
+ onSave={saveWorkflow}
+ defaultName={workflowName}
+ isSaving={isSaving}
+ />
+
+ {/* Workflow Browser Modal */}
+ <WorkflowBrowser
+ isOpen={showWorkflowBrowser}
+ onClose={() => setShowWorkflowBrowser(false)}
+ onLoadWorkflow={loadWorkflow}
+ />
+ </div>
   );
 };
 

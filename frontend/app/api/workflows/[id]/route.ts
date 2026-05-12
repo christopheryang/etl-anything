@@ -56,3 +56,36 @@ export async function DELETE(
     );
   }
 }
+
+// PUT /api/workflows/[id] - update an existing workflow
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+    const backendUrl = process.env.BACKEND_URL || "http://localhost:8001";
+    const response = await fetch(`${backendUrl}/api/workflows/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return NextResponse.json({ error: "Workflow not found" }, { status: 404 });
+      }
+      throw new Error(`Backend error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error("Error updating workflow:", error);
+    return NextResponse.json(
+      { error: "Failed to update workflow" },
+      { status: 500 }
+    );
+  }
+}

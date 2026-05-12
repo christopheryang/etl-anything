@@ -2,16 +2,14 @@
 
 **Status:** Pending (not implemented)
 
-
-> **Note:** This feature was documented but never implemented in the UI.**Feature ID:** F020
-
 ---
 
 ## Requirements
 
-- Help button (question mark / HelpCircle icon) in the toolbar
-- Opens a modal overlay listing all keyboard shortcuts and canvas features
-- Modal can be closed with Escape or clicking outside
+- **FR1:** Help button (question mark / HelpCircle icon) in the toolbar
+- **FR2:** Opens a modal overlay listing all keyboard shortcuts and canvas features
+- **FR3:** Modal can be closed with Escape or clicking outside
+- **NFR1:** No breaking changes to existing functionality
 
 ---
 
@@ -23,7 +21,7 @@
 
 ---
 
-## Implementation Summary
+## Implementation
 
 **Status:** Pending (not implemented)
 
@@ -40,7 +38,28 @@
 
 ---
 
+## Acceptance Criteria
+
+- [ ] **FR1:** Help button (question mark / HelpCircle icon) in the toolbar
+- [ ] **FR2:** Opens a modal overlay listing all keyboard shortcuts and canvas features
+- [ ] **FR3:** Modal can be closed with Escape or clicking outside
+- [ ] **NFR1:** No breaking changes to existing functionality
+
+---
+
+## Test Cases
+
+- Verify feature works per requirements
+- Run `cd backend && source venv/bin/activate && python -m pytest tests/ -q`
+- Run `cd frontend && npx -p typescript tsc --noEmit`
+
+---
+
 ## Caveats
 
 - Help content needs to be kept in sync with actual shortcut implementation — mismatches will confuse users
 - No keyboard shortcut yet assigned to open the help modal (Ctrl+? or F1)
+
+---
+
+## Files Modified

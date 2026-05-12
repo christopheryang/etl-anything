@@ -4,6 +4,116 @@ Chronological record of releases. Updated after every significant change.
 
 ---
 
+## v0.6.3 — Auto-Save, Run-in-Banner, Status Pills
+
+**Date:** May 11, 2026
+**Version:** v0.6.3
+
+### Features
+
+- **Auto-save** — workflows with a saved ID auto-save after 3s of inactivity; amber dot indicates unsaved changes; quick-save button in banner (grayed out when clean)
+- **Run button moved to banner** — Run workflow button now lives next to the workflow name in the top bar; removed from left sidebar
+- **Save uses PUT when updating** — saving a previously-saved workflow now sends PUT to `/api/workflows/{id}` instead of creating a duplicate via POST
+- **Status pills in history panel** — execution list and detail view show colored status badges (green/red/yellow/gray)
+
+### Backend
+
+- **PUT /api/workflows/{id}** — new endpoint for updating existing workflows
+- **execute_workflow_engine** now receives `workflow_name` and `workflow_id` from the execute endpoint, so execution history records link back to the originating workflow
+
+---
+
+## v0.6.2 — Rule Node Branching Fix & UI Defaults
+
+**Date:** May 11, 2026
+**Version:** v0.6.2
+
+### Bug Fixes
+
+- **Rule node branching broken** — frontend was stripping `sourceHandle` from edges when executing workflows, so the backend couldn't route `true`/`false` paths. Now includes `sourceHandle` in the execute payload.
+- **Workflow load zoom** — removed `fitView()` call after loading a saved workflow, preserving user's zoom level (stays at 100%).
+- **Node library default** — starts collapsed instead of expanded on page load.
+
+---
+
+## v0.6.1 — Save Validation & Workflow Browser
+
+**Date:** May 11, 2026
+**Version:** v0.6.1
+
+### Save & Browse Workflows
+
+- **Save modal** — rejects "Untitled Workflow", requires custom name, optional description field
+- **Fixed save request shape** — now sends `{ name, description, workflow: { nodes, edges } }` matching backend schema
+- **Workflow browser** — folder icon in left rail opens a modal listing saved workflows
+- **Sortable columns** — click any column heading (Name, Created, Updated) to sort asc/desc
+- **Pagination** — 10 workflows per page with prev/next navigation
+- **Click-to-load** — single click a workflow row to load it into the canvas
+- **Backend pagination** — `GET /api/workflows` now supports `page`, `page_size`, `sort_by`, `sort_order` query params
+
+---
+
+## v0.6.0 — VS Code-style UI Redesign
+
+**Date:** May 10, 2026 
+**Version:** v0.6.0
+
+### UI Redesign
+
+Complete layout overhaul to VS Code / Claude Desktop style:
+
+- **Left sidebar rail** with icon buttons: Save, Run, History, Templates, Zoom In, Zoom Out, Settings, Profile
+- **Chat-first layout** — AI conversation is the primary interface (top panel)
+- **Draggable splitter** between chat panel and canvas — resize by dragging
+- **Collapsible Node Library** at the bottom of the canvas area
+- **Model selector** moved into Settings dropdown (gear icon in sidebar)
+- **No top banner** — clean, minimal layout
+- **Auto-generate on Enter** — no separate "AI Generate" button; sending a prompt immediately triggers generation
+- Zoom In and Zoom Out are separate sidebar buttons; Fit View removed
+- Sidebar collapses to icon-only (w-14) or expands to show labels (w-56)
+
+### New Components
+
+- `LeftSidebar.tsx` — Icon rail with expand/collapse, settings dropdown with theme, minimap, and AI model selector
+- `ChatPanel.tsx` — AI conversation interface with message history and prompt input
+- `NodeLibrary.tsx` — Collapsible drag-and-drop node palette
+
+### Backend Changes
+
+- `POST /api/workflows/generate` now accepts optional `model` parameter (defaults to `qwen/qwen3.5-397b-a17b`)
+
+---
+
+## v0.5.1 — Prompt-to-Workflow Generation
+
+**Date:** May 10, 2026 
+**Version:** v0.5.1
+
+### New Feature
+
+#### F027: Prompt-to-Workflow Generation ✅
+**Status:** Complete 
+**Files:** `backend/prompt_builder.py`, `frontend/app/components/workflow/PromptPanel.tsx`
+
+Users can describe ETL workflows in natural language and the system automatically generates the corresponding GUI workflow on the canvas. The AI explains what it created in a conversational chat interface. Users can iterate with follow-up prompts to modify the workflow — unlimited back-and-forth.
+
+**Backend:**
+- New `prompt_builder.py` — constructs system prompts with node type schemas, available files, and current workflow context
+- New `POST /api/workflows/generate` endpoint — accepts prompt + optional current workflow, returns generated workflow + explanation
+- Uses NVIDIA NIM (Qwen 3.5) via OpenAI-compatible client
+- Validates LLM JSON output and falls back gracefully on parse errors
+
+**Frontend:**
+- New `PromptPanel` component — chat-style UI with message history, auto-scroll, textarea with Enter-to-send
+- "AI Generate" button with Sparkles icon in toolbar (toggle on/off)
+- Split-panel layout: Prompt Panel (40vh) on top, Canvas on bottom when active
+- `handleGenerate` sends current workflow state for iterative modification
+- Auto-fit view after workflow generation
+
+**Tests:** 14/14 passing (prompt builder + endpoint with mocked LLM)
+
+---
+
 ## v0.5 — Execution History, Templates Library, NVIDIA NIM, CSV Export
 
 **Date:** May 10, 2026  

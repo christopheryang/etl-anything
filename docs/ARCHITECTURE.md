@@ -45,15 +45,51 @@ app/
 └── page.tsx                      ← Renders <WorkflowCanvas />
 
 components/workflow/
-├── WorkflowCanvas.tsx             ← MAIN: all state, toolbar, modals
-├── Sidebar.tsx                    ← Node palette (draggable list)
-├── nodeConfig.ts                  ← NODE_CONFIGS registry
+├── WorkflowCanvas.tsx ← MAIN: all state, layout orchestration
+├── LeftSidebar.tsx ← Icon rail: Save, Open, Run, AI, History, Templates, Zoom, Settings
+├── ChatPanel.tsx ← AI conversation: messages, model selector, prompt input
+├── NodeLibrary.tsx ← Collapsible drag-and-drop node palette (F027)
+├── PromptPanel.tsx ← (Legacy) Replaced by ChatPanel in v0.6 redesign
+├── SaveWorkflowModal.tsx ← Save dialog: name (required), description (F028)
+├── WorkflowBrowser.tsx ← Browse saved workflows: sort, paginate, click-to-load (F028)
+├── Sidebar.tsx ← (Legacy) Replaced by NodeLibrary in v0.6 redesign
+├── nodeConfig.ts ← NODE_CONFIGS registry
 └── nodes/
-    ├── InputNode.tsx              ← File upload → POST /api/files
-    ├── ReasoningNode.tsx          ← Model dropdown, temp slider, prompt
-    ├── OutputNode.tsx             ← Filename + format selector
-    └── RuleNode.tsx               ← Conditions builder, AND/OR toggle
+ ├── InputNode.tsx ← File upload → POST /api/files
+ ├── ReasoningNode.tsx ← Model dropdown, temp slider, prompt
+ ├── OutputNode.tsx ← Filename + format selector
+ └── RuleNode.tsx ← Conditions builder, AND/OR toggle
 ```
+
+### Layout (VS Code / Claude Desktop style)
+
+```
+┌──────────┬─────────────────────────────────────────────────────┐
+│          │  ChatPanel (top half)                               │
+│  Left    │  ┌───────────────────────────────────────────────┐  │
+│  Sidebar │  │ Logo + "ETL Anything" + Model Selector       │  │
+│  (Rail)  │  ├───────────────────────────────────────────────┤  │
+│          │  │                                               │  │
+│  [Save]  │  │  Conversation history                         │  │
+│  [Run]   │  │  (user/assistant messages)                    │  │
+│  [AI]    │  │                                               │  │
+│  [Hist]  │  ├───────────────────────────────────────────────┤  │
+│  [Tmpl]  │  │ Prompt input + Send button                    │  │
+│  [Zoom]  │  └───────────────────────────────────────────────┘  │
+│  [Set]   │─────────────────────────────────────────────────  │
+│          │  Workflow name bar + status indicator              │
+│          │  ┌───────────────────────────────────────────────┐  │
+│          │  │                                               │  │
+│          │  │  ReactFlow Canvas (nodes + edges)             │  │
+│          │  │                                               │  │
+│          │  ├───────────────────────────────────────────────┤  │
+│          │  │ Node Library (collapsible, drag-and-drop)     │  │
+│          │  └───────────────────────────────────────────────┘  │
+└──────────┴─────────────────────────────────────────────────────┘
+```
+
+The left sidebar collapses to icon-only (w-14) or expands to show labels (w-56).
+The node library panel collapses to a single header bar or expands to show draggable node cards.
 
 ### State in WorkflowCanvas.tsx
 
@@ -119,9 +155,12 @@ FastAPI app
 ├── GET  /                              → service info
 │
 ├── /api/workflows
-│   ├── GET    /api/workflows            → list all saved workflows
-│   ├── POST   /api/workflows           → save workflow to JSON file
-│   └── GET    /api/workflows/{id}       → load workflow by ID
+│   ├── GET /api/workflows → list saved workflows (paginated: page, page_size, sort_by, sort_order)
+│   ├── POST /api/workflows → save workflow to JSON file
+│   ├── GET /api/workflows/{id} → load workflow by ID
+│   ├── PUT /api/workflows/{id} → update existing workflow (F030)
+│   ├── DELETE /api/workflows/{id} → delete workflow
+│   └── POST /api/workflows/generate → AI-generate workflow from prompt (F027)
 │
 ├── /api/executions
 │   ├── POST   /api/executions          → start execution, return exec_id
@@ -394,3 +433,4 @@ handle_rule_node(node, execution_id, input_data, **kwargs)
 | **Execution polling** | Frontend polls every 2s. Simple, works through proxies. WebSocket is the future. |
 | **In-memory execution registry** | `executions: Dict[str, ExecutionState]` lives in process memory. No persistence. Cancels work on restart. |
 | **File storage by UUID** | Uploaded files stored as `{uuid}` with original filename preserved in metadata. Avoids filename collisions. |
+| **Auto-save (debounced PUT)** | Saved workflows auto-save after 3s of inactivity. Prevents data loss without intrusive prompts. Unsaved workflows still require manual Save. |

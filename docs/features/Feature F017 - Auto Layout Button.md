@@ -1,17 +1,15 @@
-# Feature F017 — Auto-Layout Button (Dagre)
+# Feature F017 — Auto-Layout Button
 
 **Status:** Pending (not implemented)
-
-
-> **Note:** This feature was documented but never implemented in the UI.**Feature ID:** F017
 
 ---
 
 ## Requirements
 
-- Button arranges all nodes in a left-to-right DAG layout
-- Uses dagre graph layout library
-- Automatically fits the view after layout is applied
+- **FR1:** Button arranges all nodes in a left-to-right DAG layout
+- **FR2:** Uses dagre graph layout library
+- **FR3:** Automatically fits the view after layout is applied
+- **NFR1:** No breaking changes to existing functionality
 
 ---
 
@@ -23,7 +21,7 @@
 
 ---
 
-## Implementation Summary
+## Implementation
 
 **Files changed:**
 - `frontend/app/components/workflow/WorkflowCanvas.tsx`
@@ -41,8 +39,32 @@
 
 ---
 
+## Acceptance Criteria
+
+- [ ] **FR1:** Button arranges all nodes in a left-to-right DAG layout
+- [ ] **FR2:** Uses dagre graph layout library
+- [ ] **FR3:** Automatically fits the view after layout is applied
+- [ ] **NFR1:** No breaking changes to existing functionality
+
+---
+
+## Test Cases
+
+- Verify feature works per requirements
+- Run `cd backend && source venv/bin/activate && python -m pytest tests/ -q`
+- Run `cd frontend && npx -p typescript tsc --noEmit`
+
+---
+
 ## Caveats
 
 - Nodes with the same rank may have overlapping positions — `nodesep` helps but doesn't guarantee no overlap
 - Auto-layout resets all manual positioning — user may want to preserve some manual placement
 - Running auto-layout on a very large graph (50+ nodes) may be slow
+
+---
+
+## Files Modified
+
+- `frontend/app/components/workflow/WorkflowCanvas.tsx`
+- `frontend/package.json` — added `dagre`, `@types/dagre`
